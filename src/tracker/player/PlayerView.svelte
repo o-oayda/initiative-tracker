@@ -7,12 +7,23 @@
     import type { Creature } from "src/utils/creature";
     import { createEventDispatcher, setContext } from "svelte";
     import type InitiativeTracker from "src/main";
-    import Status from "../ui/creatures/Status.svelte";
 
     import { tracker } from "../stores/tracker";
     const { state, ordered, data } = tracker;
     export let plugin: InitiativeTracker;
     setContext<InitiativeTracker>("plugin", plugin);
+
+    const hoverLink = (evt: MouseEvent, href: string) => {
+        try {
+            plugin.app.workspace.trigger(
+                "link-hover",
+                {},
+                evt.currentTarget as HTMLElement,
+                href,
+                "/"
+            );
+        } catch (e) {}
+    };
 
     const hpIcon = (node: HTMLElement) => {
         setIcon(node, HP);
@@ -85,11 +96,20 @@
                     {/if}
                 </td>
                 <td class="center">
-                    <div class="status-list">
-                        {#each [...creature.status] as status}
-                            <Status {status} on:remove={() => {
-                                tracker.updateCreatures({ creature, change: { remove_status: [status] } });
-                            }} />
+                    <div class="statuses-inline">
+                        {#each [...creature.status] as status, i}
+                            {#if status.link}
+                                <span>Concentrating on </span>
+                                <a
+                                    class="internal-link"
+                                    href={status.link}
+                                    data-href={status.link}
+                                    on:click|preventDefault={() => plugin.app.workspace.openLinkText(status.link, "/", false)}
+                                    on:mouseenter={(evt) => hoverLink(evt, status.link)}
+                                >{status.linkText ?? status.link}</a>{i < [...creature.status].length - 1 ? ', ' : ''}
+                            {:else}
+                                {status.name}{i < [...creature.status].length - 1 ? ', ' : ''}
+                            {/if}
                         {/each}
                     </div>
                 </td>
@@ -140,12 +160,7 @@
     .defeated {
         color: var(--text-faint);
     }
-    .status-list {
-        display: inline-flex;
-        gap: 0.25rem;
-        flex-wrap: wrap;
-        justify-content: center;
-    }
+    .statuses-inline { white-space: normal; }
     .active {
         background-color: rgba(0, 0, 0, 0.1);
     }
