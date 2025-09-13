@@ -55,11 +55,37 @@ The `spells:` block defaults to kind `spell`; `psionics:` defaults to kind `powe
   - Powers only → “Manifest Powers” (brain icon)
   - Multiple kinds → “Use Abilities” (sparkles icon)
 - This opens a modal listing resources grouped by kind. For each entry:
-  - Click “−” to decrement remaining uses; “+” to increment (clamped between 0 and per‑day cap).
-  - The label shows `remaining/perDay`.
-  - Clicking a wiki‑linked name opens the linked note; hovering shows the Obsidian preview popover.
+  - Primary action button on the right uses the appropriate verb:
+    - Cast (spells) / Manifest (powers) / Use (others). For per‑day items, this decrements the remaining counter.
+  - The middle column shows `remaining/perDay` with small “− / +” buttons for manual adjustment when needed. At‑will entries show an “(at will)” badge and no counters.
+  - Clicking a linked name opens the note; hovering shows the native Obsidian preview popover.
   - “Reset All” restores all remaining counts to max for that creature.
-  - At‑will items are shown with an “(at will)” badge and no +/- controls.
+
+### Icons and Grouping
+
+- Each kind section shows a relevant icon in the header: wand for spells, brain for powers, sparkles for other kinds.
+- Items are grouped by kind with a subtle divider below each section title.
+
+### Auto‑linking of Ability Names
+
+- If a resource name is a normal wiki link (`[[...]]`) or a Fantasy Statblocks sentinel link, it’s rendered as a link.
+- If it’s plain text, the plugin attempts to resolve a matching note and auto‑link it:
+  - Tries a few slug variants: original, lowercased, hyphenated (spaces → dashes), and de‑hyphenated.
+  - If a match is found, the name becomes a clickable internal link with hover preview.
+  - This is scoped to the currently opened modal for performance.
+
+### Concentration Detection
+
+- On Cast/Manifest/Use, the plugin checks the linked note for a “Duration: Concentration …” line (typical formats like `- **Duration:** Concentration, …` are supported).
+- If found, it applies a concentrating status to the creature:
+  - Spells (and other kinds): exclusive concentration — any prior “Concentrating on …” is removed.
+  - Powers: multiple concentrations are allowed — existing concentrations are preserved.
+- The status renders as “Concentrating on <Ability>” with the ability name shown as a clickable internal link (hover preview supported).
+
+### Player View
+
+- Player View shows statuses inline as a comma‑separated string.
+- Linked concentration statuses display the ability name as an internal link; there are no remove buttons in Player View.
 
 ## Persistence & Behavior
 
@@ -77,3 +103,4 @@ The `spells:` block defaults to kind `spell`; `psionics:` defaults to kind `powe
 
 - Only simple per‑day tracking is supported; per‑rest or shared‑pool mechanics are out of scope for now.
 - There’s no per‑round auto‑reset for resources (unlike some status effects). Use “Reset All” as needed.
+- Concentration detection requires the ability to link to a note (either explicitly via a wiki/sentinel link or via auto‑linking) and a duration line containing “Concentration”.
