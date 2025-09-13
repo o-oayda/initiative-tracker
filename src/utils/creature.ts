@@ -163,7 +163,7 @@ export class Creature {
     private extractPerDaySpells() {
         // this is ok, attribute is assigned correctly
         this.spellsPerDay = Creature.readPerDaySpells(this.creature as any);
-        console.log(this.spellsPerDay);
+        // console.log(this.spellsPerDay);
     }
 
     getName() {

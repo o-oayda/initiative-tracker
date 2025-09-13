@@ -104,16 +104,7 @@
             {/each}
         {/if}
     </div>
-    {#if Object.keys(creature.spellsPerDay ?? {}).length}
-        <div class="spells">
-            <small class="label">Spells:</small>
-            <span class="spell-list">
-                {Object.entries(creature.spellsPerDay)
-                    .map(([name, info]) => `${name} (${info.remaining}/${info.perDay})`)
-                    .join(", ")}
-            </span>
-        </div>
-    {/if}
+    
     <!-- {#if creature.spellsPerDay} -->
     <!--     <div class="spells debug"> -->
     <!--         <small class="label">spellsPerDay:</small> -->
@@ -197,15 +188,7 @@
         flex-flow: row wrap;
         column-gap: 0.25rem;
     }
-    .spells {
-        display: block;
-        margin-top: 0.125rem;
-        color: var(--text-muted);
-        font-size: smaller;
-    }
-    .spells .label {
-        margin-right: 0.25rem;
-    }
+    
 
     .initiative-container {
         border-top-left-radius: 0.25rem;

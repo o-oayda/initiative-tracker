@@ -755,6 +755,7 @@ function createTracker() {
         },
         update: () => update((c) => c),
         updateAndSave: () => updateAndSave((c) => c),
+        refresh: () => updateAndSave((creatures) => [...creatures]),
         roll: (plugin: InitiativeTracker) =>
             updateAndSave((creatures) => {
                 rollIntiative(plugin, creatures);

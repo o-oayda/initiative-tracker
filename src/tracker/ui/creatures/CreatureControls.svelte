@@ -13,6 +13,7 @@
     import { createEventDispatcher, getContext } from "svelte";
     import type InitiativeTracker from "src/main";
     import { tracker } from "src/tracker/stores/tracker";
+    import SpellCastingModal from "../spells/modal";
 
     const dispatch = createEventDispatcher();
 
@@ -35,6 +36,15 @@
                         tracker.setUpdate(creature, e);
                     });
             });
+            if (creature.spellsPerDay && Object.keys(creature.spellsPerDay).length) {
+                menu.addItem((item) => {
+                    item.setIcon("wand")
+                        .setTitle("Cast Spells…")
+                        .onClick(() => {
+                            new SpellCastingModal(plugin, creature).open();
+                        });
+                });
+            }
             if (creature.current_ac != creature.ac) {
                 menu.addItem((item) => {
                     item.setIcon(HP)
