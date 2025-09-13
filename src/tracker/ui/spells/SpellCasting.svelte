@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { Creature } from "src/utils/creature";
     import { tracker } from "src/tracker/stores/tracker";
+    import { setIcon } from "obsidian";
 
     export let creature: Creature;
 
@@ -8,6 +9,18 @@
     let refresh = 0;
     const pluralize = (k: string) => (k?.endsWith("y") ? k.slice(0, -1) + "ies" : k + "s");
     const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+    function kindIcon(node: HTMLElement, kind: string) {
+        const setByKind = (k: string) => {
+            const kk = (k ?? "spell").toLowerCase();
+            const name = kk === "spell" ? "wand" : kk === "power" ? "brain" : "sparkles";
+            setIcon(node, name);
+        };
+        setByKind(kind);
+        return {
+            update: (k: string) => setByKind(k)
+        };
+    }
 
     const parseWikiLink = (raw: string) => {
         const text = raw?.trim() ?? "";
@@ -95,7 +108,10 @@
         <div class="list">
             {#key refresh}
                 {#each Array.from(new Set(Object.values(creature.resourcesPerDay ?? {}).map((r) => (r.kind ?? 'spell')))) as kind}
-                    <div class="kind-header">{cap(pluralize(kind))}</div>
+                    <div class="kind-header">
+                        <span class="icon" use:kindIcon={kind} />
+                        {cap(pluralize(kind))}
+                    </div>
                     {#each entries().filter(([_, info]) => (info.kind ?? 'spell') === kind) as [name, info]}
                         <div class="row">
                             <div class="name">
@@ -149,11 +165,18 @@
         overflow: auto;
     }
     .kind-header {
-        margin-top: 0.25rem;
-        font-size: 0.9rem;
+        margin-top: 0.5rem;
+        padding-bottom: 0.25rem;
+        font-size: 0.95rem;
         font-weight: var(--font-semibold);
         color: var(--text-muted);
         text-transform: none;
+        border-bottom: 1px solid var(--background-modifier-border);
+    }
+    .kind-header .icon {
+        display: inline-flex;
+        vertical-align: middle;
+        margin-right: 0.35rem;
     }
     .row {
         display: flex;
@@ -161,10 +184,11 @@
         justify-content: space-between;
         gap: 0.5rem;
         padding: 0.25rem 0;
-        border-bottom: 1px solid var(--background-modifier-border);
     }
-    .row:last-child { border-bottom: none; }
-    .name { font-weight: var(--font-semibold); }
+    .name {
+        font-weight: normal;
+        font-size: 0.9rem;
+    }
     .controls {
         display: inline-flex;
         align-items: center;
