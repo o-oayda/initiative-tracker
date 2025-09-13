@@ -39,7 +39,7 @@
             if (creature.spellsPerDay && Object.keys(creature.spellsPerDay).length) {
                 menu.addItem((item) => {
                     item.setIcon("wand")
-                        .setTitle("Cast Spells…")
+                        .setTitle("Cast Spells")
                         .onClick(() => {
                             new SpellCastingModal(plugin, creature).open();
                         });

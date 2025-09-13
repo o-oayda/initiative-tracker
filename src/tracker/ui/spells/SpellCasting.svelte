@@ -7,6 +7,54 @@
     const entries = () => Object.entries(creature.spellsPerDay ?? {});
     let refresh = 0;
 
+    const parseWikiLink = (raw: string) => {
+        const text = raw?.trim() ?? "";
+        // Handle Fantasy Statblocks sentinel format: <STATBLOCK-WIKI-LINK>target|Display<STATBLOCK-WIKI-LINK>
+        const sentinel = text.match(/^<STATBLOCK-WIKI-LINK>(.+?)<STATBLOCK-WIKI-LINK>$/);
+        if (sentinel) {
+            const content = sentinel[1];
+            const [target, display] = content.split("|");
+            return {
+                isLink: true,
+                target: target?.trim() ?? "",
+                display: (display ?? target)?.trim() ?? ""
+            } as const;
+        }
+        // Handle standard Obsidian wiki link: [[target|Display]] or [[target]]
+        const m = text.match(/^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]$/);
+        if (m) {
+            const target = m[1];
+            const display = m[2] ?? m[1];
+            return { isLink: true, target, display } as const;
+        }
+        return { isLink: false, target: null, display: raw } as const;
+    };
+    const openInternal = (target: string) => {
+        try {
+            // Use creature.path as source if available for resolution
+            const source = creature?.path ?? "";
+            app.workspace.openLinkText(target, source, false);
+        } catch (e) {
+            // noop
+        }
+    };
+    let hoverTimeout: NodeJS.Timeout = null;
+    const tryHover = (evt: MouseEvent, target: string) => {
+        clearTimeout(hoverTimeout);
+        hoverTimeout = setTimeout(() => {
+            try {
+                const anchor = (evt.currentTarget as HTMLElement) ?? (evt.target as HTMLElement);
+                // Trigger native hover (ensure it can render above modal via CSS)
+                app.workspace.trigger("link-hover", {}, anchor, target, creature?.path ?? "");
+            } catch (e) {
+                // ignore
+            }
+        }, 300);
+    };
+    const cancelHover = () => {
+        clearTimeout(hoverTimeout);
+    };
+
     const dec = (spellName: string) => {
         const s = creature.spellsPerDay?.[spellName];
         if (!s) return;
@@ -43,14 +91,27 @@
         <div class="list">
             {#key refresh}
                 {#each entries() as [name, info]}
-                    <div class="row">
-                        <div class="name">{name}</div>
-                        <div class="controls">
-                            <button class="btn" on:click={() => dec(name)} aria-label={`Use one ${name}`}>−</button>
-                            <span class="count">{info.remaining}/{info.perDay}</span>
-                            <button class="btn" on:click={() => inc(name)} aria-label={`Restore one ${name}`}>+</button>
-                        </div>
+                <div class="row">
+                    <div class="name">
+                        {#if parseWikiLink(name).isLink}
+                            <a
+                                class="internal-link"
+                                href={parseWikiLink(name).target}
+                                data-href={parseWikiLink(name).target}
+                                on:click|preventDefault|stopPropagation={() => openInternal(parseWikiLink(name).target)}
+                                on:mouseover={(evt) => tryHover(evt, parseWikiLink(name).target)}
+                                on:mouseleave={cancelHover}
+                            >{parseWikiLink(name).display}</a>
+                        {:else}
+                            {name}
+                        {/if}
                     </div>
+                    <div class="controls">
+                        <button class="btn" on:click={() => dec(name)} aria-label={`Use one ${name}`}>−</button>
+                        <span class="count">{info.remaining}/{info.perDay}</span>
+                        <button class="btn" on:click={() => inc(name)} aria-label={`Restore one ${name}`}>+</button>
+                    </div>
+                </div>
                 {/each}
             {/key}
         </div>
@@ -115,5 +176,10 @@
     }
     .reset {
         padding: 0.25rem 0.5rem;
+    }
+    /* Ensure Obsidian's native hover popover appears above the modal */
+    :global(.popover),
+    :global(.hover-popover) {
+        z-index: 100000 !important;
     }
 </style>
