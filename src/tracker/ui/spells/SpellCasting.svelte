@@ -44,6 +44,44 @@
         }
         return { isLink: false, target: null, display: raw } as const;
     };
+    // Resolve plain names to internal links if a matching file exists.
+    const linkCache: Map<string, string | null> = new Map();
+    const resolvePlainTarget = (name: string): string | null => {
+        const norm = (s: string) => s?.normalize?.("NFKD")?.replace(/[’'"`]/g, "").trim();
+        const base = norm(name);
+        const hyphenate = (s: string) => s.replace(/\s+/g, "-");
+        const dehyphenate = (s: string) => s.replace(/-/g, " ");
+        const lower = (s: string) => s.toLowerCase();
+        const candidates = Array.from(new Set([
+            base,
+            lower(base),
+            hyphenate(base),
+            hyphenate(lower(base)),
+            dehyphenate(base),
+            dehyphenate(lower(base))
+        ].filter(Boolean)));
+        try {
+            for (const candidate of candidates) {
+                const file = app.metadataCache.getFirstLinkpathDest(candidate, "/");
+                if (file) return file.path;
+            }
+        } catch (e) {
+            // ignore
+        }
+        return null;
+    };
+    const linkFor = (name: string) => {
+        const wiki = parseWikiLink(name);
+        if (wiki.isLink) return wiki;
+        if (!linkCache.has(name)) {
+            linkCache.set(name, resolvePlainTarget(name));
+        }
+        const target = linkCache.get(name);
+        if (target) {
+            return { isLink: true, target, display: name } as const;
+        }
+        return { isLink: false, target: null, display: name } as const;
+    };
     const openInternal = (target: string) => {
         try {
             // Use creature.path as source if available for resolution
@@ -115,15 +153,15 @@
                     {#each entries().filter(([_, info]) => (info.kind ?? 'spell') === kind) as [name, info]}
                         <div class="row">
                             <div class="name">
-                                {#if parseWikiLink(name).isLink}
+                                {#if linkFor(name).isLink}
                                     <a
                                         class="internal-link"
-                                        href={parseWikiLink(name).target}
-                                        data-href={parseWikiLink(name).target}
-                                        on:click|preventDefault|stopPropagation={() => openInternal(parseWikiLink(name).target)}
-                                        on:mouseover={(evt) => tryHover(evt, parseWikiLink(name).target)}
+                                        href={linkFor(name).target}
+                                        data-href={linkFor(name).target}
+                                        on:click|preventDefault|stopPropagation={() => openInternal(linkFor(name).target)}
+                                        on:mouseover={(evt) => tryHover(evt, linkFor(name).target)}
                                         on:mouseleave={cancelHover}
-                                    >{parseWikiLink(name).display}</a>
+                                    >{linkFor(name).display}</a>
                                 {:else}
                                     {name}
                                 {/if}
