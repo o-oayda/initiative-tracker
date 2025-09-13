@@ -59,6 +59,7 @@
 
     const dec = (spellName: string) => {
         const s = creature.resourcesPerDay?.[spellName];
+        if (s?.atWill) return;
         if (!s) return;
         s.remaining = Math.max(0, (s.remaining ?? s.perDay) - 1);
         // Force Svelte to re-render after nested mutation
@@ -68,6 +69,7 @@
     };
     const inc = (spellName: string) => {
         const s = creature.resourcesPerDay?.[spellName];
+        if (s?.atWill) return;
         if (!s) return;
         s.remaining = Math.min(s.perDay, (s.remaining ?? 0) + 1);
         // Force Svelte to re-render after nested mutation
@@ -111,9 +113,13 @@
                                 {/if}
                             </div>
                             <div class="controls">
-                                <button class="btn" on:click={() => dec(name)} aria-label={`Use one ${name}`}>−</button>
-                                <span class="count">{info.remaining}/{info.perDay}</span>
-                                <button class="btn" on:click={() => inc(name)} aria-label={`Restore one ${name}`}>+</button>
+                                {#if info.atWill}
+                                    <span class="at-will">(at will)</span>
+                                {:else}
+                                    <button class="btn" on:click={() => dec(name)} aria-label={`Use one ${name}`}>−</button>
+                                    <span class="count">{info.remaining}/{info.perDay}</span>
+                                    <button class="btn" on:click={() => inc(name)} aria-label={`Restore one ${name}`}>+</button>
+                                {/if}
                             </div>
                         </div>
                     {/each}

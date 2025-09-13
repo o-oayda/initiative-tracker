@@ -51,7 +51,7 @@ export class Creature {
      * Per-day resources, keyed by name.
      * e.g. { "Hold Person": { perDay: 2, remaining: 2, kind: "spell" } }
      */
-    resourcesPerDay: { [name: string]: { perDay: number; remaining: number; kind?: string } } = {};
+    resourcesPerDay: { [name: string]: { perDay: number; remaining: number; kind?: string; atWill?: boolean } } = {};
     setModifier(modifier: number[] | number) {
         if (modifier) {
             if (Array.isArray(modifier)) {
@@ -136,14 +136,21 @@ export class Creature {
         return DEFAULT_UNDEFINED;
     }
     /**
-     * Parse statblock/frontmatter attributes like
-     *   "2/day", "2/day each", "2/day spell(s)", "3/day power(s)"
-     * into an internal per-day resource tracker.
+     * Parse per‑day resources from a source object (SRD creature or note frontmatter).
+     * Supports:
+     *  - Top‑level keys: "N/day [kind]", optional "each" suffix, and "At will [kind]"
+     *  - Legacy blocks from Fantasy Statblocks/frontmatter: "spells", "psionics", "spellcasting"
+     *    in either array form (mixed strings + objects) or object form.
      */
-    private static readPerDayResources(obj: any) {
-        const perDayRegex = /^(\d+)\/day(?:\s+([a-z- ]+))?(?:\s*each)?$/i;
-        const resources: { [name: string]: { perDay: number; remaining: number; kind?: string } } = {};
+    static readPerDayResources(obj: any) {
+        // Capture "N/day" with optional kind, but do NOT capture the trailing "each"
+        // Examples: "2/day", "2/day spell", "2/day each", "2/day spells each"
+        const perDayRegex = /^(\d+)\/day(?:\s+(?!each\b)([a-z- ]+))?(?:\s*each)?$/i;
+        // Capture legacy/explicit at‑will headers: "At will", "At-will", with optional kind
+        const atWillRegex = /^at\s*-?\s*will(?:\s+([a-z- ]+))?$/i;
+        const resources: { [name: string]: { perDay: number; remaining: number; kind?: string; atWill?: boolean } } = {};
         if (!obj || typeof obj !== "object") return resources;
+        // Normalize kind strings: case, whitespace, simple plurals (spells->spell, abilities->ability)
         const normalizeKind = (raw?: string): string => {
             if (!raw) return "spell"; // default for backwards compatibility
             let k = raw.toLowerCase().trim();
@@ -154,18 +161,110 @@ export class Creature {
             else if (k.endsWith("s")) k = k.slice(0, -1); // spells -> spell, powers -> power
             return k;
         };
+        // Add names under a given header as per‑day or at‑will entries
+        const addNames = (
+            names: string[],
+            opts: { perDay?: number; kind?: string; atWill?: boolean }
+        ) => {
+            const kind = normalizeKind(opts.kind);
+            if (opts.atWill) {
+                // At‑will: no counters; mark explicitly for the UI
+                for (const n of names) resources[n] = { perDay: 0, remaining: 0, kind, atWill: true };
+            } else {
+                const perDay = Number(opts.perDay ?? 0) || 0;
+                for (const n of names) resources[n] = { perDay, remaining: perDay, kind };
+            }
+        };
+        // Accept comma‑separated strings or arrays of strings/values
+        const parseNames = (val: any): string[] => {
+            const list: string[] = [];
+            if (Array.isArray(val)) {
+                for (const entry of val) {
+                    if (typeof entry === "string") list.push(...entry.split(",").map((s) => s.trim()).filter(Boolean));
+                }
+            } else if (typeof val === "string") {
+                list.push(...val.split(",").map((s) => s.trim()).filter(Boolean));
+            }
+            return list;
+        };
         for (const key of Object.keys(obj)) {
             const match = key.match(perDayRegex);
-            if (!match) continue;
-            const perDay = parseInt(match[1], 10);
-            const kind = normalizeKind(match[2]);
-            const list = obj[key];
-            if (!Array.isArray(list)) continue;
-            for (const entry of list) {
-                if (typeof entry !== "string") continue;
-                const name = entry.trim();
-                if (!name.length) continue;
-                resources[name] = { perDay, remaining: perDay, kind };
+            const at = key.match(atWillRegex);
+            if (match) {
+                const perDay = parseInt(match[1], 10);
+                const kind = match[2];
+                const names = parseNames(obj[key]);
+                addNames(names, { perDay, kind });
+                continue;
+            }
+            if (at) {
+                const kind = at[1];
+                const names = parseNames(obj[key]);
+                addNames(names, { atWill: true, kind });
+                continue;
+            }
+            // Legacy spellcasting/psionics blocks like:
+            // spells: [ 'At will: light, mage hand', '2/day each: ...', '1/day each: ...' ]
+            // Legacy blocks from Statblocks/frontmatter. Example shapes:
+            //   spells: ["desc...", {"At will": "light, mage hand"}, {"2/day each": "..."} ]
+            //   psionics: { "At will": [...], "3/day each": [...] }
+            if (["spells", "psionics", "spellcasting"].includes(key.toLowerCase())) {
+                const kindDefault = key.toLowerCase() === "psionics" ? "power" : "spell";
+                const block = obj[key];
+                if (Array.isArray(block)) {
+                    for (const line of block) {
+                        if (typeof line === "string") {
+                            const parts = line.split(":");
+                            if (parts.length < 2) continue;
+                            const header = parts[0].trim();
+                            const listPart = parts.slice(1).join(":");
+                            const m2 = header.match(perDayRegex);
+                            const aw2 = header.match(atWillRegex);
+                            if (m2) {
+                                const perDay = parseInt(m2[1], 10);
+                                const kind = m2[2] ?? kindDefault;
+                                addNames(parseNames(listPart), { perDay, kind });
+                            } else if (aw2) {
+                                const kind = aw2[1] ?? kindDefault;
+                                addNames(parseNames(listPart), { atWill: true, kind });
+                            } else {
+                                // ignore descriptive lines
+                            }
+                        } else if (line && typeof line === "object") {
+                            // Object entry: iterate subheaders (e.g. "At will", "2/day each")
+                            for (const sub of Object.keys(line)) {
+                                const header = sub.trim();
+                                const listVal = (line as any)[sub];
+                                const names = parseNames(listVal);
+                                const m2 = header.match(perDayRegex);
+                                const aw2 = header.match(atWillRegex);
+                                if (m2) {
+                                    const perDay = parseInt(m2[1], 10);
+                                    const kind = m2[2] ?? kindDefault;
+                                    addNames(names, { perDay, kind });
+                                } else if (aw2) {
+                                    const kind = aw2[1] ?? kindDefault;
+                                    addNames(names, { atWill: true, kind });
+                                }
+                            }
+                        }
+                    }
+                } else if (block && typeof block === "object") {
+                    for (const sub of Object.keys(block)) {
+                        const header = sub.trim();
+                        const names = parseNames(block[sub]);
+                        const m2 = header.match(perDayRegex);
+                        const aw2 = header.match(atWillRegex);
+                        if (m2) {
+                            const perDay = parseInt(m2[1], 10);
+                            const kind = m2[2] ?? kindDefault;
+                            addNames(names, { perDay, kind });
+                        } else if (aw2) {
+                            const kind = aw2[1] ?? kindDefault;
+                            addNames(names, { atWill: true, kind });
+                        }
+                    }
+                }
             }
         }
         return resources;

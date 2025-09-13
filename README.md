@@ -15,6 +15,7 @@ With this plugin, you can add creatures and NPCs to the initiative tracker, and 
 - Set creature display names to differentiate identical creatures
 - Supports dice rolls to add random amount creatures
 - Keep track of creature HP, AC and status
+- Track per-day resources (spells, powers) with usage tracking
 - Sort creatures by initiative automatically
 - Add several encounters in one code block
 - Automatically save and load encounters
@@ -38,6 +39,10 @@ creatures:
 - Launch the encounter by clicking on the play button, and start tracking initiative.
 
 Check out the **[plugin documentation](https://plugins.javalent.com/it)** for more detailed instructions and examples.
+
+Additional fork-specific docs:
+
+- Per‑day resources (spells, powers) usage tracking: see `docs/per-day-resources.md`.
 
 ## Support
 

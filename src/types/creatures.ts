@@ -15,7 +15,7 @@ export interface CreatureState extends HomebrewCreature {
      * Per-day resources by name (e.g. spells, powers, abilities).
      * Populated from keys like `"2/day"`, `"2/day spell"`, `"3/day powers"`.
      */
-    resourcesPerDay?: { [name: string]: { perDay: number; remaining: number; kind?: string } };
+    resourcesPerDay?: { [name: string]: { perDay: number; remaining: number; kind?: string; atWill?: boolean } };
 }
 export interface SRDMonster {
     name: string;

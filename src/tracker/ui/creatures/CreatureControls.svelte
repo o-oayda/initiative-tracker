@@ -9,6 +9,7 @@
         TAG
     } from "src/utils";
     import type { Creature } from "src/utils/creature";
+    import { Creature as CreatureModel } from "src/utils/creature";
     import type TrackerView from "src/tracker/view";
     import { createEventDispatcher, getContext } from "svelte";
     import type InitiativeTracker from "src/main";
@@ -36,6 +37,7 @@
                         tracker.setUpdate(creature, e);
                     });
             });
+            // resourcesPerDay should already be present on the creature
             if (creature.resourcesPerDay && Object.keys(creature.resourcesPerDay).length) {
                 const kinds = new Set(
                     Object.values(creature.resourcesPerDay).map((r) => (r.kind ?? "spell").toLowerCase())
