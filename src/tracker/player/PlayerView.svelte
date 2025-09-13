@@ -5,10 +5,14 @@
 
     import { AC, FRIENDLY, HP, INITIATIVE } from "src/utils";
     import type { Creature } from "src/utils/creature";
-    import { createEventDispatcher } from "svelte";
+    import { createEventDispatcher, setContext } from "svelte";
+    import type InitiativeTracker from "src/main";
+    import Status from "../ui/creatures/Status.svelte";
 
     import { tracker } from "../stores/tracker";
     const { state, ordered, data } = tracker;
+    export let plugin: InitiativeTracker;
+    setContext<InitiativeTracker>("plugin", plugin);
 
     const hpIcon = (node: HTMLElement) => {
         setIcon(node, HP);
@@ -81,7 +85,13 @@
                     {/if}
                 </td>
                 <td class="center">
-                    {[...creature.status].map((s) => s.name).join(", ")}
+                    <div class="status-list">
+                        {#each [...creature.status] as status}
+                            <Status {status} on:remove={() => {
+                                tracker.updateCreatures({ creature, change: { remove_status: [status] } });
+                            }} />
+                        {/each}
+                    </div>
                 </td>
             </tr>
         {/each}
@@ -129,6 +139,12 @@
     }
     .defeated {
         color: var(--text-faint);
+    }
+    .status-list {
+        display: inline-flex;
+        gap: 0.25rem;
+        flex-wrap: wrap;
+        justify-content: center;
     }
     .active {
         background-color: rgba(0, 0, 0, 0.1);

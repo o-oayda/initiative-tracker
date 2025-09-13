@@ -1,7 +1,8 @@
 <script lang="ts">
     import { ExtraButtonComponent, setIcon } from "obsidian";
     import type { Condition } from "src/types/creatures";
-    import { createEventDispatcher } from "svelte";
+    import { createEventDispatcher, getContext } from "svelte";
+    import type InitiativeTracker from "src/main";
     
     const dispatch = createEventDispatcher();
 
@@ -18,6 +19,13 @@
     const plus = (node: HTMLElement) => {
         setIcon(node, "plus");
     };
+    const hoverLink = (evt: MouseEvent, href: string) => {
+        try {
+            plugin.app.workspace.trigger("link-hover", {}, evt.currentTarget as HTMLElement, href, "/");
+        } catch (e) {}
+    };
+
+    const plugin = getContext<InitiativeTracker>("plugin");
 </script>
 
 <!-- svelte-ignore a11y-unknown-aria-attribute -->
@@ -25,8 +33,20 @@
     <span
         aria-label-classes="initiative-tracker-condition-tooltip"
         aria-label={status.description?.length ? status.description : null}
-        >{status.name}</span
     >
+        {#if status.link}
+            <span>Concentrating on </span>
+            <a
+                class="internal-link"
+                href={status.link}
+                data-href={status.link}
+                on:click|preventDefault={() => plugin.app.workspace.openLinkText(status.link, "/", false)}
+                on:mouseenter={(evt) => hoverLink(evt, status.link)}
+            >{status.linkText ?? status.link}</a>
+        {:else}
+            {status.name}
+        {/if}
+    </span>
     {#if status.hasAmount}
         <div class="amount">
             <div

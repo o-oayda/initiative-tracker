@@ -58,6 +58,9 @@ export type Condition = {
     name: string;
     description: string;
     id: string;
+    /** Optional: internal link target and label to render inside the status */
+    link?: string;
+    linkText?: string;
     resetOnRound?: boolean;
     hasAmount?: boolean;
     startingAmount?: number;

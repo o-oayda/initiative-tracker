@@ -1,7 +1,8 @@
 <script lang="ts">
     import type { Creature } from "src/utils/creature";
     import { tracker } from "src/tracker/stores/tracker";
-    import { setIcon } from "obsidian";
+    import { getId } from "src/utils/creature";
+    import { setIcon, Notice } from "obsidian";
 
     export let creature: Creature;
 
@@ -128,6 +129,66 @@
         refresh += 1;
         tracker.refresh();
     };
+    const verbFor = (kind: string) => {
+        const k = (kind ?? 'spell').toLowerCase();
+        if (k === 'spell') return 'Cast';
+        if (k === 'power') return 'Manifest';
+        return 'Use';
+    };
+
+    const getTargetFile = (target: string) => {
+        try {
+            // First try Obsidian link resolution relative to the creature's note (if present)
+            let file = app.metadataCache.getFirstLinkpathDest(target, creature?.path ?? "/");
+            if (file) return file as any;
+            // If it looks like a full path, try direct vault lookup
+            if (/\.md$/i.test(target) || target.includes("/")) {
+                const abs: any = app.vault.getAbstractFileByPath(target);
+                if (abs && abs.path && typeof abs.path === 'string') return abs;
+            }
+        } catch (e) {
+            // ignore
+        }
+        return null;
+    };
+    const checkAndApplyConcentration = async (abilityName: string, kind?: string) => {
+        const lf = linkFor(abilityName);
+        const target = lf.isLink ? lf.target : null;
+        if (!target) return;
+        const file = getTargetFile(target);
+        if (!file) return;
+        try {
+            const content = await app.vault.cachedRead(file);
+            // Match lines like "- **Duration:** Concentration, up to ..." (allowing bold around label and colon inside/outside bold)
+            const re = /(^|\n)\s*[-*]?\s*(?:\*\*|__)?duration\s*[:\.\-\u2014\u2013]?(?:\*\*|__)?\s*[:\.\-\u2014\u2013]?\s*concentration\b/i;
+            if (re.test(content)) {
+                const status = { name: `Concentrating on`, link: target, linkText: (lf.display ?? abilityName), description: null, id: getId() } as any;
+                const allowMultiple = (kind ?? 'spell').toLowerCase() === 'power';
+                const existing = [...(creature.status ?? new Set())].find((s: any) =>
+                    (s?.linkText && s.linkText === status.linkText) || s?.name === `Concentrating on ${status.linkText}`
+                );
+                if (existing) return; // already concentrating on this exact ability
+                const change: any = { status: [status] };
+                if (!allowMultiple) {
+                    change.remove_status = [...(creature.status ?? new Set())].filter((s) => s?.name?.startsWith?.("Concentrating on"));
+                }
+                tracker.updateCreatures({ creature, change });
+                new Notice(`Concentration started: ${lf.display ?? abilityName}`, 2000);
+            } else {
+                new Notice(`No concentration detected in: ${lf.display ?? abilityName}`, 1500);
+            }
+        } catch (e) {
+            // ignore read errors
+        }
+    };
+
+    const castAbility = async (name: string, info: { atWill?: boolean; remaining?: number; perDay?: number; kind?: string }) => {
+        if (!info?.atWill) {
+            if (info.remaining <= 0) return;
+            dec(name);
+        }
+        await checkAndApplyConcentration(name, info?.kind);
+    };
     const resetAll = () => {
         for (const [, info] of entries()) {
             info.remaining = info.perDay;
@@ -152,7 +213,7 @@
                     </div>
                     {#each entries().filter(([_, info]) => (info.kind ?? 'spell') === kind) as [name, info]}
                         <div class="row">
-                            <div class="name">
+                            <div class="col name">
                                 {#if linkFor(name).isLink}
                                     <a
                                         class="internal-link"
@@ -166,14 +227,21 @@
                                     {name}
                                 {/if}
                             </div>
-                            <div class="controls">
+                            <div class="col middle">
                                 {#if info.atWill}
                                     <span class="at-will">(at will)</span>
                                 {:else}
-                                    <button class="btn" on:click={() => dec(name)} aria-label={`Use one ${name}`}>−</button>
                                     <span class="count">{info.remaining}/{info.perDay}</span>
-                                    <button class="btn" on:click={() => inc(name)} aria-label={`Restore one ${name}`}>+</button>
+                                    <button class="btn-mini" title="Decrease" on:click={() => dec(name)} aria-label={`Decrease ${name}`}>−</button>
+                                    <button class="btn-mini" title="Undo / Increase" on:click={() => inc(name)} aria-label={`Increase ${name}`}>+</button>
                                 {/if}
+                            </div>
+                            <div class="col action">
+                                <button
+                                    class="btn-verb"
+                                    on:click={() => castAbility(name, info)}
+                                    disabled={!info.atWill && info.remaining <= 0}
+                                >{verbFor(info.kind)}</button>
                             </div>
                         </div>
                     {/each}
@@ -219,34 +287,48 @@
     .row {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 0.5rem;
-        padding: 0.25rem 0;
+        justify-content: flex-start;
+        gap: 0.35rem;
+        padding: 0.15rem 0;
     }
+    .col { display: flex; align-items: center; }
     .name {
         font-weight: normal;
         font-size: 0.9rem;
     }
-    .controls {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    .btn {
-        padding: 0 0.4rem;
-        min-width: 1.25rem;
-        height: 1.25rem;
-        line-height: 1.25rem;
-        font-size: 0.8rem;
+    .col.name { flex: 1 1 auto; min-width: 8rem; }
+    .col.middle { flex: 0 0 8.5rem; gap: 0.35rem; justify-content: center; }
+    .col.action { flex: 0 0 6.2rem; margin-left: auto; display: flex; justify-content: flex-end; }
+    .btn-mini {
+        padding: 0 0.25rem;
+        min-width: 1rem;
+        height: 1rem;
+        line-height: 1rem;
+        font-size: 0.7rem;
         border: 1px solid var(--background-modifier-border);
         border-radius: 0.2rem;
         background: var(--background-secondary);
         color: var(--text-muted);
         cursor: pointer;
     }
-    .btn:hover {
+    .btn-mini:hover {
         color: var(--text-normal);
         background: var(--background-modifier-form-field);
+    }
+    .btn-verb {
+        padding: 0.1rem 0.4rem;
+        font-size: 0.75rem;
+        border: 1px solid var(--background-modifier-border);
+        border-radius: 0.25rem;
+        background: var(--background-primary);
+        color: var(--text-normal);
+        cursor: pointer;
+        min-width: 6rem;
+        text-align: center;
+    }
+    .btn-verb:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
     }
     .count { min-width: 3.5rem; text-align: center; }
     .footer {
