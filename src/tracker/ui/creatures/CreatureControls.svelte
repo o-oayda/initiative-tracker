@@ -36,10 +36,33 @@
                         tracker.setUpdate(creature, e);
                     });
             });
-            if (creature.spellsPerDay && Object.keys(creature.spellsPerDay).length) {
+            if (creature.resourcesPerDay && Object.keys(creature.resourcesPerDay).length) {
+                const kinds = new Set(
+                    Object.values(creature.resourcesPerDay).map((r) => (r.kind ?? "spell").toLowerCase())
+                );
+                const pluralize = (k: string) => (k.endsWith("y") ? k.slice(0, -1) + "ies" : k + "s");
+                const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+                let title: string;
+                let icon: string;
+                if (kinds.size === 1) {
+                    const k = [...kinds][0];
+                    if (k === "spell") {
+                        title = "Cast Spells";
+                        icon = "wand";
+                    } else if (k === "power") {
+                        title = "Manifest Powers";
+                        icon = "brain"; // assumes a brain icon exists in the set
+                    } else {
+                        title = `Use ${cap(pluralize(k))}`;
+                        icon = "sparkles"; // generic sparkle icon if available
+                    }
+                } else {
+                    title = "Use Abilities";
+                    icon = "sparkles";
+                }
                 menu.addItem((item) => {
-                    item.setIcon("wand")
-                        .setTitle("Cast Spells")
+                    item.setIcon(icon ?? "wand")
+                        .setTitle(title)
                         .onClick(() => {
                             new SpellCastingModal(plugin, creature).open();
                         });

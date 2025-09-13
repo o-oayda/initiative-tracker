@@ -48,10 +48,10 @@ export class Creature {
     cr: string | number;
     path: string;
     /**
-     * Per-day spell usage, keyed by spell name.
-     * e.g. { "Hold Person": { perDay: 2, remaining: 2 } }
+     * Per-day resources, keyed by name.
+     * e.g. { "Hold Person": { perDay: 2, remaining: 2, kind: "spell" } }
      */
-    spellsPerDay: { [spellName: string]: { perDay: number; remaining: number } } = {};
+    resourcesPerDay: { [name: string]: { perDay: number; remaining: number; kind?: string } } = {};
     setModifier(modifier: number[] | number) {
         if (modifier) {
             if (Array.isArray(modifier)) {
@@ -118,8 +118,8 @@ export class Creature {
             this.hit_dice = creature.hit_dice;
         }
 
-        // Extract per-day spells from statblock/frontmatter attributes if present
-        this.extractPerDaySpells();
+        // Extract per-day resources from statblock/frontmatter attributes if present
+        this.extractPerDayResources();
     }
     get hpDisplay() {
         if (this.current_max) {
@@ -136,34 +136,42 @@ export class Creature {
         return DEFAULT_UNDEFINED;
     }
     /**
-     * Parse statblock attributes like "2/day" or "2/day each": ["Spell A", "Spell B"]
-     * into an internal per-day spell tracker.
+     * Parse statblock/frontmatter attributes like
+     *   "2/day", "2/day each", "2/day spell(s)", "3/day power(s)"
+     * into an internal per-day resource tracker.
      */
-    private static readPerDaySpells(obj: any) {
-        const perDayRegex = /^(\d+)\/day(?:\s*each)?$/i;
-        const spells: { [spellName: string]: { perDay: number; remaining: number } } = {};
-        if (!obj || typeof obj !== "object") return spells;
+    private static readPerDayResources(obj: any) {
+        const perDayRegex = /^(\d+)\/day(?:\s+([a-z- ]+))?(?:\s*each)?$/i;
+        const resources: { [name: string]: { perDay: number; remaining: number; kind?: string } } = {};
+        if (!obj || typeof obj !== "object") return resources;
+        const normalizeKind = (raw?: string): string => {
+            if (!raw) return "spell"; // default for backwards compatibility
+            let k = raw.toLowerCase().trim();
+            // collapse whitespace
+            k = k.replace(/\s+/g, " ");
+            // simple plural handling
+            if (k.endsWith("ies")) k = k.slice(0, -3) + "y"; // abilities -> ability
+            else if (k.endsWith("s")) k = k.slice(0, -1); // spells -> spell, powers -> power
+            return k;
+        };
         for (const key of Object.keys(obj)) {
             const match = key.match(perDayRegex);
             if (!match) continue;
             const perDay = parseInt(match[1], 10);
-            // console.log(perDay);
+            const kind = normalizeKind(match[2]);
             const list = obj[key];
             if (!Array.isArray(list)) continue;
             for (const entry of list) {
                 if (typeof entry !== "string") continue;
                 const name = entry.trim();
                 if (!name.length) continue;
-                spells[name] = { perDay, remaining: perDay };
+                resources[name] = { perDay, remaining: perDay, kind };
             }
         }
-        // console.log(spells);
-        return spells;
+        return resources;
     }
-    private extractPerDaySpells() {
-        // this is ok, attribute is assigned correctly
-        this.spellsPerDay = Creature.readPerDaySpells(this.creature as any);
-        // console.log(this.spellsPerDay);
+    private extractPerDayResources() {
+        this.resourcesPerDay = Creature.readPerDayResources(this.creature as any);
     }
 
     getName() {
@@ -211,9 +219,9 @@ export class Creature {
             },
             creature.initiative
         );
-        // Preserve per-day spells when duplicating a creature
-        if (creature.spellsPerDay && Object.keys(creature.spellsPerDay).length) {
-            clone.spellsPerDay = JSON.parse(JSON.stringify(creature.spellsPerDay));
+        // Preserve per-day resources when duplicating a creature
+        if (creature.resourcesPerDay && Object.keys(creature.resourcesPerDay).length) {
+            clone.resourcesPerDay = JSON.parse(JSON.stringify(creature.resourcesPerDay));
         }
         return clone;
     }
@@ -287,7 +295,7 @@ export class Creature {
             "statblock-link": this["statblock-link"],
             hit_dice: this.hit_dice,
             rollHP: this.rollHP,
-            spellsPerDay: this.spellsPerDay
+            resourcesPerDay: this.resourcesPerDay
         };
     }
 
@@ -322,13 +330,12 @@ export class Creature {
         }
         creature.status = new Set(statuses);
         creature.active = state.active;
-        // Restore per-day spells if present; otherwise try to infer from source
-        if (state.spellsPerDay) {
-            creature.spellsPerDay = state.spellsPerDay;
+        // Restore per-day resources from state; otherwise try to infer from source
+        if (state.resourcesPerDay) {
+            creature.resourcesPerDay = state.resourcesPerDay as any;
         } else {
-            // Try to read from bestiary definition if available, otherwise from the state object
             const base = plugin.getBaseCreatureFromBestiary?.(state.name);
-            creature.spellsPerDay = Creature.readPerDaySpells(base ?? state);
+            creature.resourcesPerDay = Creature.readPerDayResources(base ?? state);
         }
         return creature;
     }

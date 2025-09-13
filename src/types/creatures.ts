@@ -12,10 +12,10 @@ export interface CreatureState extends HomebrewCreature {
     active: boolean;
     hit_dice: string;
     /**
-     * Map of spell name -> usage info for per-day spells.
-     * Populated from statblock attributes like `"2/day" : ["Spell A", "Spell B"]`.
+     * Per-day resources by name (e.g. spells, powers, abilities).
+     * Populated from keys like `"2/day"`, `"2/day spell"`, `"3/day powers"`.
      */
-    spellsPerDay?: { [spellName: string]: { perDay: number; remaining: number } };
+    resourcesPerDay?: { [name: string]: { perDay: number; remaining: number; kind?: string } };
 }
 export interface SRDMonster {
     name: string;

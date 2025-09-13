@@ -4,8 +4,10 @@
 
     export let creature: Creature;
 
-    const entries = () => Object.entries(creature.spellsPerDay ?? {});
+    const entries = () => Object.entries(creature.resourcesPerDay ?? {});
     let refresh = 0;
+    const pluralize = (k: string) => (k?.endsWith("y") ? k.slice(0, -1) + "ies" : k + "s");
+    const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
     const parseWikiLink = (raw: string) => {
         const text = raw?.trim() ?? "";
@@ -56,7 +58,7 @@
     };
 
     const dec = (spellName: string) => {
-        const s = creature.spellsPerDay?.[spellName];
+        const s = creature.resourcesPerDay?.[spellName];
         if (!s) return;
         s.remaining = Math.max(0, (s.remaining ?? s.perDay) - 1);
         // Force Svelte to re-render after nested mutation
@@ -65,7 +67,7 @@
         tracker.refresh();
     };
     const inc = (spellName: string) => {
-        const s = creature.spellsPerDay?.[spellName];
+        const s = creature.resourcesPerDay?.[spellName];
         if (!s) return;
         s.remaining = Math.min(s.perDay, (s.remaining ?? 0) + 1);
         // Force Svelte to re-render after nested mutation
@@ -86,32 +88,35 @@
 
 <div class="spell-casting">
     {#if !entries().length}
-        <em>No per‑day spells found.</em>
+        <em>No per‑day resources found.</em>
     {:else}
         <div class="list">
             {#key refresh}
-                {#each entries() as [name, info]}
-                <div class="row">
-                    <div class="name">
-                        {#if parseWikiLink(name).isLink}
-                            <a
-                                class="internal-link"
-                                href={parseWikiLink(name).target}
-                                data-href={parseWikiLink(name).target}
-                                on:click|preventDefault|stopPropagation={() => openInternal(parseWikiLink(name).target)}
-                                on:mouseover={(evt) => tryHover(evt, parseWikiLink(name).target)}
-                                on:mouseleave={cancelHover}
-                            >{parseWikiLink(name).display}</a>
-                        {:else}
-                            {name}
-                        {/if}
-                    </div>
-                    <div class="controls">
-                        <button class="btn" on:click={() => dec(name)} aria-label={`Use one ${name}`}>−</button>
-                        <span class="count">{info.remaining}/{info.perDay}</span>
-                        <button class="btn" on:click={() => inc(name)} aria-label={`Restore one ${name}`}>+</button>
-                    </div>
-                </div>
+                {#each Array.from(new Set(Object.values(creature.resourcesPerDay ?? {}).map((r) => (r.kind ?? 'spell')))) as kind}
+                    <div class="kind-header">{cap(pluralize(kind))}</div>
+                    {#each entries().filter(([_, info]) => (info.kind ?? 'spell') === kind) as [name, info]}
+                        <div class="row">
+                            <div class="name">
+                                {#if parseWikiLink(name).isLink}
+                                    <a
+                                        class="internal-link"
+                                        href={parseWikiLink(name).target}
+                                        data-href={parseWikiLink(name).target}
+                                        on:click|preventDefault|stopPropagation={() => openInternal(parseWikiLink(name).target)}
+                                        on:mouseover={(evt) => tryHover(evt, parseWikiLink(name).target)}
+                                        on:mouseleave={cancelHover}
+                                    >{parseWikiLink(name).display}</a>
+                                {:else}
+                                    {name}
+                                {/if}
+                            </div>
+                            <div class="controls">
+                                <button class="btn" on:click={() => dec(name)} aria-label={`Use one ${name}`}>−</button>
+                                <span class="count">{info.remaining}/{info.perDay}</span>
+                                <button class="btn" on:click={() => inc(name)} aria-label={`Restore one ${name}`}>+</button>
+                            </div>
+                        </div>
+                    {/each}
                 {/each}
             {/key}
         </div>
@@ -136,6 +141,13 @@
         flex-direction: column;
         gap: 0.25rem;
         overflow: auto;
+    }
+    .kind-header {
+        margin-top: 0.25rem;
+        font-size: 0.9rem;
+        font-weight: var(--font-semibold);
+        color: var(--text-muted);
+        text-transform: none;
     }
     .row {
         display: flex;
