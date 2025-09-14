@@ -22,13 +22,30 @@
 
     const plugin = getContext<InitiativeTracker>("plugin");
 
+    // Ensure only one context menu is open at a time per tracker view
+    let openMenu: Menu | null = null;
+
     const hamburgerIcon = (node: HTMLElement) => {
         const hamburger = new ExtraButtonComponent(node)
             .setIcon("vertical-three-dots")
             .setTooltip("Actions");
         hamburger.extraSettingsEl.onclick = (evt) => {
             evt.stopPropagation();
+            // Close any previously opened menu before opening a new one
+            try {
+                openMenu?.hide?.();
+                openMenu?.close?.();
+            } catch {}
+            // Defensive: remove any stray menu elements still in the DOM
+            try {
+                document.querySelectorAll('.menu').forEach((el) => el.remove());
+            } catch {}
             const menu = new Menu();
+            openMenu = menu;
+            menu.onHide(() => {
+                // Clear reference when this menu is dismissed
+                if (openMenu === menu) openMenu = null;
+            });
             menu.addItem((item) => {
                 item.setIcon(HP)
                     .setTitle("Set Health/Status")
