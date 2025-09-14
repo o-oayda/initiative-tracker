@@ -10,7 +10,7 @@ This fork adds first‑class tracking for per‑day resources (spells, powers, a
 - Concentration detection on cast/manifest with linked “Concentrating on …” statuses
 - Player View shows statuses inline with links (read‑only)
 
-The plugin ID remains the upstream one for personal use. Version currently includes a personal suffix (e.g., `13.0.18-resources.1`).
+For side-by-side installation with the upstream plugin, this fork uses a distinct plugin ID: `initiative-tracker-resources`. Version includes a personal suffix (e.g., `13.0.18-resources.1`).
 
 ## Key Concepts
 - `resourcesPerDay` replaces the former `spellsPerDay` (no legacy alias):
@@ -67,7 +67,7 @@ The plugin ID remains the upstream one for personal use. Version currently inclu
 
 ## Build & Install (Personal)
 - Build: `npm run build`
-- Install to vault: copy `manifest.json`, `main.js`, `styles.css` to your vault’s plugin folder (e.g., `.obsidian/plugins/initiative-tracker/`)
+- Install to vault: copy `manifest.json`, `main.js`, `styles.css` to your vault’s plugin folder (e.g., `.obsidian/plugins/initiative-tracker-resources/`)
 - Versioning: personal suffix in `manifest.json`/`package.json` (e.g., `13.0.18-resources.1`); no need to update `versions.json`
 
 ## Resuming Work Quickly
@@ -82,4 +82,3 @@ The plugin ID remains the upstream one for personal use. Version currently inclu
 - When using `app` in a Svelte component, get it from `plugin` via Svelte context: `setContext/getContext('plugin')`
 - Ensure `Status.svelte` is used where link rendering is needed; otherwise inline render with internal link class and hover trigger
 - Concentration detection requires a linked note (explicit/wikilink or resolved by auto‑linking) and a detectable duration line
-
