@@ -5,10 +5,10 @@ Scope: This file applies to the entire repository and is intended to help agents
 ## Overview
 This fork adds first‑class tracking for per‑day resources (spells, powers, abilities) and UX around using them during encounters, including:
 - Parsing per‑day and at‑will resources from statblocks/frontmatter (including legacy `spells:`/`psionics:`/`spellcasting:` blocks)
-- A casting modal with grouped sections, icons, verb button (Cast/Manifest/Use), and counters
+- A casting modal with grouped sections, icons, level subgroups, time column, verb button (Cast/Manifest/Use), and counters
 - Auto‑linking plain names to notes (with slug variants) and hover previews
-- Concentration detection on cast/manifest with linked “Concentrating on …” statuses
-- Player View shows statuses inline with links (read‑only)
+- Concentration detection on cast/manifest, tracked separately from normal statuses with themed tags
+- Player View shows statuses and a dedicated Concentrating column (read‑only)
 
 For side-by-side installation with the upstream plugin, this fork uses a distinct plugin ID: `initiative-tracker-resources`. Version includes a personal suffix (e.g., `13.0.18-resources.1`).
 
@@ -27,10 +27,10 @@ For side-by-side installation with the upstream plugin, this fork uses a distinc
   - `src/types/creatures.ts` → `CreatureState.resourcesPerDay`; `Condition` has optional `link`, `linkText`
 - UI (tracker)
   - `src/tracker/ui/creatures/CreatureControls.svelte` → menu item label/icon (Cast/Manifest/Use Abilities)
-  - `src/tracker/ui/spells/SpellCasting.svelte` → casting modal (grouping, icons, columns, verb/+/-)
-  - `src/tracker/ui/creatures/Status.svelte` → renders linked status (internal link + hover)
+  - `src/tracker/ui/spells/SpellCasting.svelte` → casting modal (grouping, level subgroups, time column with tooltip, icons, verb/+/-)
+  - `src/tracker/ui/creatures/Status.svelte` → renders linked status (internal link + hover); styles concentration tags by kind
 - Player View
-  - `src/tracker/player/PlayerView.svelte` → inline statuses with internal links (no remove buttons)
+  - `src/tracker/player/PlayerView.svelte` → statuses one per line; separate Concentrating column (one per line, internal links)
   - `src/tracker/player-view.ts` → passes `plugin` to PlayerView
 - Docs
   - `docs/per-day-resources.md` → user‑facing docs
@@ -38,8 +38,10 @@ For side-by-side installation with the upstream plugin, this fork uses a distinc
 
 ## Casting Modal UX
 - Grouped by kind with header icon: wand (spells), brain (powers), sparkles (others)
+- Within spells/powers, grouped by level: Unsorted, Cantrips (0), Level 1…n (ascending); level parsed from tags or lines like “2nd‑level …”
 - Columns:
   - Left: ability name (auto‑linked when possible; hover preview and click open)
+  - Middle‑Left: time (Casting/Manifesting Time) in small caps; hover tooltip shows qualifiers after a comma
   - Middle: `remaining/perDay` + small `−`/`+` controls (or “(at will)”) 
   - Right: primary verb button: Cast/Manifest/Use (disabled at 0 remaining)
 - “Reset All” resets remaining to max for the creature
@@ -52,18 +54,15 @@ For side-by-side installation with the upstream plugin, this fork uses a distinc
 - Hover previews use Obsidian’s `link-hover`; z‑index is bumped to render above the modal
 
 ## Concentration Detection
-- On Cast/Manifest/Use, if the linked note contains a duration line with “Concentration”, apply a status
-  - Regex is tolerant of markdown lists/bold and separators (e.g., `- **Duration:** Concentration, …`)
-- Status applied as:
-  - Name prefix: `Concentrating on`
-  - `link` + `linkText` for the ability; Status.svelte renders an internal link with hover
-- Powers: multiple simultaneous concentration statuses allowed
-- Spells/others: exclusive — prior concentration statuses removed
+- On Cast/Manifest/Use, if the linked note contains a duration line with “Concentration”, add the ability to a dedicated concentration list
+  - Regex is tolerant of markdown lists/bold and separators (e.g., `- **Duration:** Concentration, up to 1 minute`)
+- Powers: multiple simultaneous concentrations allowed; Spells/others: exclusive — prior concentrations removed
+- Tracker: concentration tags are themed by kind (spell=blue, power=pink, other=orange) and render the linked ability name only
+- Player View: separate Concentrating column (one per line)
 - A small toast (Notice) indicates detection result
 
 ## Player View
-- Displays statuses inline (comma‑separated)
-- Linked concentration statuses render a clickable internal link; no remove buttons
+- Displays statuses one per line and a separate “Concentrating” column (one per line). Links are clickable; no remove buttons
 
 ## Build & Install (Personal)
 - Build: `npm run build`
@@ -82,3 +81,4 @@ For side-by-side installation with the upstream plugin, this fork uses a distinc
 - When using `app` in a Svelte component, get it from `plugin` via Svelte context: `setContext/getContext('plugin')`
 - Ensure `Status.svelte` is used where link rendering is needed; otherwise inline render with internal link class and hover trigger
 - Concentration detection requires a linked note (explicit/wikilink or resolved by auto‑linking) and a detectable duration line
+- When opening context menus (Menu), close any previous menu before opening a new one to avoid stacked menus

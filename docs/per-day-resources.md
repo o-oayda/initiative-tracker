@@ -65,6 +65,11 @@ The `spells:` block defaults to kind `spell`; `psionics:` defaults to kind `powe
 
 - Each kind section shows a relevant icon in the header: wand for spells, brain for powers, sparkles for other kinds.
 - Items are grouped by kind with a subtle divider below each section title.
+- Within spells and powers, abilities are further grouped by level:
+  - Unsorted: items with no level detected or no linked note
+  - Cantrips (Level 0)
+  - Level 1, Level 2, … (ascending)
+  The modal caches parsed levels per linked note for performance.
 
 ### Auto‑linking of Ability Names
 
@@ -74,18 +79,29 @@ The `spells:` block defaults to kind `spell`; `psionics:` defaults to kind `powe
   - If a match is found, the name becomes a clickable internal link with hover preview.
   - This is scoped to the currently opened modal for performance.
 
+### Casting/Manifesting Time Column
+
+- The modal shows a centered time column for spells/powers. The value is parsed from the linked note’s body:
+  - Labels supported (case‑insensitive, with bold tolerated): “Casting Time:” and “Manifesting Time:”.
+  - Values like “1 action”, “1 bonus action”, or “1 reaction, which you …” are supported; any text after the first comma is shown as a tooltip on hover.
+  - The time display uses small caps; tooltip text remains normal casing.
+  - Results are cached per note for performance.
+
 ### Concentration Detection
 
-- On Cast/Manifest/Use, the plugin checks the linked note for a “Duration: Concentration …” line (typical formats like `- **Duration:** Concentration, …` are supported).
-- If found, it applies a concentrating status to the creature:
-  - Spells (and other kinds): exclusive concentration — any prior “Concentrating on …” is removed.
-  - Powers: multiple concentrations are allowed — existing concentrations are preserved.
-- The status renders as “Concentrating on <Ability>” with the ability name shown as a clickable internal link (hover preview supported).
+- On Cast/Manifest/Use, the plugin checks the linked note for a “Duration: Concentration …” line (markdown list/bold variants supported).
+- If found, the ability is added to the creature’s dedicated concentration list:
+  - Spells (and other kinds): exclusive — previous concentrations are removed.
+  - Powers: multiple are allowed.
+- Tracker widget: concentrated abilities render as compact colored tags with the linked name only (no “Concentrating on …” prefix):
+  - Spells: themed blue highlight; Powers: themed pink; Others: themed orange (colors honor theme `--color-*-rgb` variables with fallbacks).
+- Player View: shows a separate “Concentrating” column; one ability per line as an internal link (read‑only).
 
 ### Player View
 
-- Player View shows statuses inline as a comma‑separated string.
-- Linked concentration statuses display the ability name as an internal link; there are no remove buttons in Player View.
+- Columns: Initiative, Name, HP status, Statuses, Concentrating.
+- Statuses: one per line (wrapped); Concentrating: one per line (no wrap), as internal links.
+- Cosmetic tweaks: names are vertically centered within multi‑line rows; subtle horizontal rules separate rows.
 
 ## Persistence & Behavior
 

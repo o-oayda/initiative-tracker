@@ -14,19 +14,34 @@ This fork adds features to track per‑day resources (spells, powers, abilities)
   - Auto‑link plain names to notes (tries original, lowercase, hyphenated, de‑hyphenated variants)
   - Hover preview and click‑open for links
   - Reset All button; at‑will shows badge without controls
+- Modal UX refinements
+  - Level grouping for spells/powers: Unsorted, Cantrips (0), Level 1…n (ascending)
+  - Casting/Manifesting Time column (small caps), with hover tooltip for qualifiers (e.g., reaction “which …”)
+  - Auto‑link caching; level/time parsing cached per note; compact row spacing; slimmer verb buttons
 - Concentration
   - On Cast/Manifest/Use, detect `Duration: Concentration …` in the linked note (markdown list/bold variants)
-  - Apply status “Concentrating on <Ability>” with internal link
-  - Spells: exclusive; Powers: multiple allowed
+  - New dedicated `concentration` bucket on creatures (separate from normal `status`)
+  - Spells/others: exclusive; Powers: multiple allowed
+  - Tracker: colored tags by kind (spell=blue, power=pink, other=orange) using theme `--color-*-rgb` variables
+  - Tags render the ability name only (no “Concentrating on …” prefix); links without underline; subtle border
   - Toasts indicate detection results
 - Player View
-  - Inline, read‑only statuses string with rendered internal links; no remove buttons
+  - New “Concentrating” column renders one ability per line (no wrap), as internal links
+  - Statuses column renders one status per line
+  - Names vertically centered; subtle hrules between rows
 
 ## Implementation Notes
 - Renamed `spellsPerDay` → `resourcesPerDay`, with optional `kind` and `atWill`
 - Public parser: `Creature.readPerDayResources(obj)`
-- Status type extended with optional `link` and `linkText`
+- Status type extended with optional `link`, `linkText`, and `kind`
 - Docs: `docs/per-day-resources.md`
+
+## Fixes
+- Controls menu: prevent multiple popups — opening a new actions menu closes any existing instance
+
+## Styling/theming
+- Concentration tag colors respect theme `--color-blue-rgb`, `--color-pink-rgb`, and `--color-orange-rgb` with sensible fallbacks
+- Time column uses small caps; tooltip uses normal casing
 
 ## Rebase Tips
 - Legacy parsing lives in `src/utils/creature.ts` → `readPerDayResources`
