@@ -146,6 +146,48 @@
         levelCache.set(key, lvl);
         return lvl;
     };
+    // Cache parsed casting/manifesting time per target path
+    type TimeInfo = { display: string | null; note: string | null };
+    const timeCache: Map<string, TimeInfo | null> = new Map();
+    // Local mapping from ability name to parsed time (null = unknown)
+    let times: Map<string, string | null> = new Map();
+    let timeNotes: Map<string, string | null> = new Map();
+    const extractTimePartsFromContent = (content: string): TimeInfo | null => {
+        const body = stripFrontmatter(content);
+        // Match lines like "- **Casting Time:** 1 action" or "- **Manifesting Time:** 1 bonus action"
+        // Allow bold around label and punctuation before value
+        const re = /(^|\n)\s*[-*]?\s*(?:\*\*|__)?(?:casting|manifesting)\s*time(?:\*\*|__)?\s*[:\.\-\u2014\u2013]?\s*([^\n]+)/i;
+        const m = body.match(re);
+        if (!m) return null;
+        let val = (m[2] ?? m[1] ?? "").trim();
+        // Clean up stray markdown emphasis or punctuation that might trail the label
+        // e.g., cases like "***Casting Time:*** 1 action" can leave a leading "*"
+        val = val.replace(/^(?:\*+|_+)+\s*/, "");
+        val = val.replace(/^[:\.\-\u2014\u2013]\s*/, "");
+        if (!val) return { display: null, note: null };
+        // Split on the first comma to separate reaction qualifiers (e.g., "1 reaction, which ...")
+        const mm = val.match(/^([^,]+?)(?:,\s*(.+))?$/);
+        const display = (mm?.[1] ?? val).trim();
+        const note = (mm?.[2] ?? "").trim() || null;
+        return { display, note };
+    };
+    const getTimeFor = async (name: string): Promise<TimeInfo | null> => {
+        const lf = linkFor(name);
+        if (!lf.isLink) return null;
+        const file = getTargetFile(lf.target);
+        if (!file) return null;
+        const key = (file as any).path;
+        if (timeCache.has(key)) return timeCache.get(key)!;
+        let t: TimeInfo | null = null;
+        try {
+            const content = await app.vault.cachedRead(file);
+            t = extractTimePartsFromContent(content);
+        } catch {
+            t = null;
+        }
+        timeCache.set(key, t);
+        return t;
+    };
     const warmLevels = () => {
         // Precompute levels for spells and powers, update local map as they resolve
         const entriesByKind = entries();
@@ -153,15 +195,26 @@
             const k = (info.kind ?? 'spell').toLowerCase();
             if (k !== 'spell' && k !== 'power') continue;
             // If we've already computed a value for this name, skip
-            if (levels.has(name)) continue;
-            // Seed with null so unsorted shows initially
-            levels.set(name, null);
-            // Fire-and-forget async compute
-            (async () => {
-                const lvl = await getLevelFor(name);
-                levels.set(name, lvl);
-                levelsRefresh += 1;
-            })();
+            if (!levels.has(name)) {
+                // Seed with null so unsorted shows initially
+                levels.set(name, null);
+                // Fire-and-forget async compute
+                (async () => {
+                    const lvl = await getLevelFor(name);
+                    levels.set(name, lvl);
+                    levelsRefresh += 1;
+                })();
+            }
+            if (!times.has(name)) {
+                times.set(name, null);
+                timeNotes.set(name, null);
+                (async () => {
+                    const t = await getTimeFor(name);
+                    times.set(name, t?.display ?? null);
+                    timeNotes.set(name, t?.note ?? null);
+                    levelsRefresh += 1;
+                })();
+            }
         }
     };
     let hoverTimeout: NodeJS.Timeout = null;
@@ -307,6 +360,16 @@
                                                     {name}
                                                 {/if}
                                             </div>
+                                            <div class="col time">
+                                                {#if times.get(name)}
+                                                    <span
+                                                        class="time-text"
+                                                        class:has-tooltip={!!timeNotes.get(name)}
+                                                        aria-label={timeNotes.get(name) ?? undefined}
+                                                        aria-label-position="top"
+                                                    >{times.get(name)}</span>
+                                                {/if}
+                                            </div>
                                             <div class="col middle">
                                                 {#if info.atWill}
                                                     <span class="at-will">(at will)</span>
@@ -345,6 +408,16 @@
                                                     {name}
                                                 {/if}
                                             </div>
+                                            <div class="col time">
+                                                {#if times.get(name)}
+                                                    <span
+                                                        class="time-text"
+                                                        class:has-tooltip={!!timeNotes.get(name)}
+                                                        aria-label={timeNotes.get(name) ?? undefined}
+                                                        aria-label-position="top"
+                                                    >{times.get(name)}</span>
+                                                {/if}
+                                            </div>
                                             <div class="col middle">
                                                 {#if info.atWill}
                                                     <span class="at-will">(at will)</span>
@@ -381,6 +454,16 @@
                                         >{linkFor(name).display}</a>
                                     {:else}
                                         {name}
+                                    {/if}
+                                </div>
+                                <div class="col time">
+                                    {#if ['spell','power'].includes((kind ?? 'spell').toLowerCase()) && times.get(name)}
+                                        <span
+                                            class="time-text"
+                                            class:has-tooltip={!!timeNotes.get(name)}
+                                            aria-label={timeNotes.get(name) ?? undefined}
+                                            aria-label-position="top"
+                                        >{times.get(name)}</span>
                                     {/if}
                                 </div>
                                 <div class="col middle">
@@ -459,7 +542,16 @@
         font-size: 0.9rem;
     }
     .col.name { flex: 1 1 auto; min-width: 8rem; }
-    .col.middle { flex: 0 0 8.5rem; gap: 0.35rem; justify-content: center; }
+    .col.time { flex: 0 0 9rem; font-size: 0.8rem; color: var(--text-muted); }
+    .col.time .time-text {
+        font-variant: small-caps;
+        letter-spacing: 0.02em;
+    }
+    .col.time .has-tooltip {
+        border-bottom: 1px dotted var(--text-muted);
+        cursor: help;
+    }
+    .col.middle { flex: 0 0 7.5rem; gap: 0.35rem; justify-content: center; }
     .col.action { flex: 0 0 6.2rem; margin-left: auto; display: flex; justify-content: flex-end; }
     .btn-mini {
         padding: 0 0.25rem;
