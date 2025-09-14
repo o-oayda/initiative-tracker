@@ -29,13 +29,18 @@
 </script>
 
 <!-- svelte-ignore a11y-unknown-aria-attribute -->
-<div class="tag">
+<div
+    class="tag"
+    class:concentration={!!status.link}
+    class:spell={status.kind?.toLowerCase?.() === 'spell'}
+    class:power={status.kind?.toLowerCase?.() === 'power'}
+    class:other={!!status.link && status.kind?.toLowerCase?.() !== 'spell' && status.kind?.toLowerCase?.() !== 'power'}
+>
     <span
         aria-label-classes="initiative-tracker-condition-tooltip"
         aria-label={status.description?.length ? status.description : null}
     >
         {#if status.link}
-            <span>Concentrating on </span>
             <a
                 class="internal-link"
                 href={status.link}
@@ -77,6 +82,31 @@
         width: fit-content;
         border-color: var(--border-color);
         border-radius: 0.25rem;
+        padding: 0 0.25rem;
+    }
+    .tag.concentration {
+        color: var(--text-normal);
+        border-color: transparent;
+        padding: 0 0.35rem;
+        border-radius: 0.25rem;
+    }
+    .tag.concentration.spell {
+        background-color: rgba(var(--color-blue-rgb, 59, 130, 246), 0.15);
+        border: 1px solid rgba(var(--color-blue-rgb, 59, 130, 246), 0.35);
+    }
+    .tag.concentration.power {
+        background-color: rgba(var(--color-pink-rgb, 236, 72, 153), 0.15);
+        border: 1px solid rgba(var(--color-pink-rgb, 236, 72, 153), 0.35);
+    }
+    .tag.concentration.other {
+        background-color: rgba(var(--color-orange-rgb, 245, 158, 11), 0.15);
+        border: 1px solid rgba(var(--color-orange-rgb, 245, 158, 11), 0.35);
+    }
+    /* Tame the wikilink color inside concentration tags */
+    .tag.concentration :global(a.internal-link) {
+        color: var(--text-normal) !important;
+        text-decoration: none !important;
+        font-weight: normal;
     }
     .tag :global(.clickable-icon) {
         margin: 0;

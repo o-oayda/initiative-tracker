@@ -42,6 +42,8 @@ type CreatureUpdate = {
     max?: number;
     status?: Condition[];
     remove_status?: Condition[];
+    concentration?: Condition[];
+    remove_concentration?: Condition[];
     hidden?: boolean;
     enabled?: boolean;
     //this is so dirty
@@ -267,6 +269,16 @@ function createTracker() {
                     creature.removeCondition(status);
                 }
             }
+            if ((change as any).concentration?.length) {
+                for (const c of (change as any).concentration as Condition[]) {
+                    creature.addConcentration(c);
+                }
+            }
+            if ((change as any).remove_concentration?.length) {
+                for (const c of (change as any).remove_concentration as Condition[]) {
+                    creature.removeConcentration(c);
+                }
+            }
             if ("hidden" in change) {
                 creature.hidden = change.hidden!;
                 _logger.log(
@@ -467,6 +479,21 @@ function createTracker() {
                             ) {
                                 creature.addCondition(status as Condition);
                             }
+                        }
+                    }
+                    if (Array.isArray((change as any).concentration) && (change as any).concentration.length) {
+                        for (const c of (change as any).concentration as Condition[]) {
+                            creature.addConcentration(c);
+                        }
+                    }
+                    if (Array.isArray((change as any).remove_status) && (change as any).remove_status.length) {
+                        for (const status of (change as any).remove_status as Condition[]) {
+                            creature.removeCondition(status);
+                        }
+                    }
+                    if (Array.isArray((change as any).remove_concentration) && (change as any).remove_concentration.length) {
+                        for (const c of (change as any).remove_concentration as Condition[]) {
+                            creature.removeConcentration(c);
                         }
                     }
                 }
@@ -842,6 +869,7 @@ function createTracker() {
                     creature.hp = creature.current_max = creature.max;
                     creature.enabled = true;
                     creature.status.clear();
+                    creature.concentration?.clear?.();
                 }
                 _logger?.log("Encounter HP & Statuses reset");
                 return creatures;
@@ -1225,6 +1253,16 @@ class Tracker {
                     this.tryLog(
                         `${creature.name} relieved of status ${status.name}`
                     );
+                }
+            }
+            if ((change as any).concentration?.length) {
+                for (const c of (change as any).concentration) {
+                    creature.addConcentration(c);
+                }
+            }
+            if ((change as any).remove_concentration?.length) {
+                for (const c of (change as any).remove_concentration) {
+                    creature.removeConcentration(c);
                 }
             }
             if ("hidden" in change) {

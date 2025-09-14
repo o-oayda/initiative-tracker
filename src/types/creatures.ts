@@ -1,5 +1,7 @@
 export interface CreatureState extends HomebrewCreature {
     status: string[];
+    /** Concentrating abilities (linked), serialized minimally */
+    concentrating?: { link: string; linkText?: string; name?: string }[];
     enabled: boolean;
     currentMaxHP: number;
     currentHP: number;
@@ -61,6 +63,8 @@ export type Condition = {
     /** Optional: internal link target and label to render inside the status */
     link?: string;
     linkText?: string;
+    /** Optional: classification for styling (e.g., 'spell', 'power') */
+    kind?: string;
     resetOnRound?: boolean;
     hasAmount?: boolean;
     startingAmount?: number;

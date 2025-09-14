@@ -69,21 +69,24 @@
         <th style="width:5%"><strong use:iniIcon /></th>
         <th class="left" style="width:30%"><strong>Name</strong></th>
         <th style="width:15%" class="center"><strong use:hpIcon /></th>
-        <th><strong> Statuses </strong></th>
+        <th style="width:30%"><strong>Statuses</strong></th>
+        <th style="width:25%" class="center"><strong>Concentrating</strong></th>
     </thead>
     <tbody>
         {#each activeAndVisible as creature (creature.id)}
             <tr class:active={amIActive(creature) && $state}>
                 <td class="center">{creature.initiative}</td>
                 <td class='name'>
-                    {#if creature.friendly}
-                        <div
-                            class="contains-icon"
-                            use:friendIcon
-                            aria-label={`This creature is an ally.`}
-                        />
-                    {/if}
-                    {name(creature)}
+                    <div class="name-content">
+                        {#if creature.friendly}
+                            <div
+                                class="contains-icon"
+                                use:friendIcon
+                                aria-label={`This creature is an ally.`}
+                            />
+                        {/if}
+                        {name(creature)}
+                    </div>
                 </td>
                 <td
                     class:center={true}
@@ -96,21 +99,27 @@
                     {/if}
                 </td>
                 <td class="center">
-                    <div class="statuses-inline">
-                        {#each [...creature.status] as status, i}
-                            {#if status.link}
-                                <span>Concentrating on </span>
-                                <a
-                                    class="internal-link"
-                                    href={status.link}
-                                    data-href={status.link}
-                                    on:click|preventDefault={() => plugin.app.workspace.openLinkText(status.link, "/", false)}
-                                    on:mouseenter={(evt) => hoverLink(evt, status.link)}
-                                >{status.linkText ?? status.link}</a>{i < [...creature.status].length - 1 ? ', ' : ''}
-                            {:else}
-                                {status.name}{i < [...creature.status].length - 1 ? ', ' : ''}
-                            {/if}
+                    <div class="statuses-list">
+                        {#each [...creature.status].filter((s) => !s.link) as status}
+                            <div class="status-line">{status.name}</div>
                         {/each}
+                    </div>
+                </td>
+                <td class="center">
+                    <div class="concentrating-list">
+                        {#if creature.concentration?.size}
+                            {#each [...creature.concentration] as status}
+                                <div class="concentrating-line">
+                                    <a
+                                        class="internal-link"
+                                        href={status.link}
+                                        data-href={status.link}
+                                        on:click|preventDefault={() => plugin.app.workspace.openLinkText(status.link, "/", false)}
+                                        on:mouseenter={(evt) => hoverLink(evt, status.link)}
+                                    >{status.linkText ?? status.link}</a>
+                                </div>
+                            {/each}
+                        {/if}
                     </div>
                 </td>
             </tr>
@@ -140,7 +149,8 @@
     .left {
         text-align: left;
     }
-    .name, .name > :global(svg) {
+    td.name { vertical-align: middle; }
+    .name-content, .name-content > :global(svg) {
         display: flex;
         align-items: center;
         gap: 0.5rem;
@@ -160,11 +170,38 @@
     .defeated {
         color: var(--text-faint);
     }
-    .statuses-inline { white-space: normal; }
+    .statuses-inline {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+    .statuses-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        align-items: center; /* keep centered to match column */
+        white-space: normal;
+    }
+    .status-line { white-space: normal; }
+    .concentrating-inline { color: var(--text-accent); }
+    .concentrating-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        align-items: center; /* keep centered to match column */
+    }
+    .concentrating-line { white-space: nowrap; }
     .active {
         background-color: rgba(0, 0, 0, 0.1);
     }
     :global(.theme-dark) .active {
         background-color: rgba(255, 255, 255, 0.1);
+    }
+    /* Subtle horizontal rules between rows */
+    tbody tr td {
+        border-bottom: 1px solid var(--background-modifier-border);
+    }
+    tbody tr:first-child td {
+        border-top: 1px solid var(--background-modifier-border);
     }
 </style>

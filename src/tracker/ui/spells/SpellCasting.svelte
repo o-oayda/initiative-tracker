@@ -287,15 +287,15 @@
             // Match lines like "- **Duration:** Concentration, up to ..." (allowing bold around label and colon inside/outside bold)
             const re = /(^|\n)\s*[-*]?\s*(?:\*\*|__)?duration\s*[:\.\-\u2014\u2013]?(?:\*\*|__)?\s*[:\.\-\u2014\u2013]?\s*concentration\b/i;
             if (re.test(content)) {
-                const status = { name: `Concentrating on`, link: target, linkText: (lf.display ?? abilityName), description: null, id: getId() } as any;
+                const status = { name: `Concentration`, link: target, linkText: (lf.display ?? abilityName), description: null, id: getId(), kind: (kind ?? 'spell') } as any;
                 const allowMultiple = (kind ?? 'spell').toLowerCase() === 'power';
-                const existing = [...(creature.status ?? new Set())].find((s: any) =>
-                    (s?.linkText && s.linkText === status.linkText) || s?.name === `Concentrating on ${status.linkText}`
+                const existing = [...(creature.concentration ?? new Set())].find((s: any) =>
+                    (s?.linkText && s.linkText === status.linkText)
                 );
                 if (existing) return; // already concentrating on this exact ability
-                const change: any = { status: [status] };
+                const change: any = { concentration: [status] };
                 if (!allowMultiple) {
-                    change.remove_status = [...(creature.status ?? new Set())].filter((s) => s?.name?.startsWith?.("Concentrating on"));
+                    change.remove_concentration = [...(creature.concentration ?? new Set())];
                 }
                 tracker.updateCreatures({ creature, change });
                 new Notice(`Concentration started: ${lf.display ?? abilityName}`, 2000);
@@ -542,7 +542,7 @@
         font-size: 0.9rem;
     }
     .col.name { flex: 1 1 auto; min-width: 8rem; }
-    .col.time { flex: 0 0 9rem; font-size: 0.8rem; color: var(--text-muted); }
+    .col.time { flex: 0 0 9rem; font-size: 0.8rem; color: var(--text-muted); justify-content: center; text-align: center; }
     .col.time .time-text {
         font-variant: small-caps;
         letter-spacing: 0.02em;

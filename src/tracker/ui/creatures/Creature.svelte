@@ -103,6 +103,16 @@
                 />
             {/each}
         {/if}
+        {#if creature.concentration?.size}
+            {#each [...creature.concentration] as status}
+                <Status
+                    {status}
+                    on:remove={() => {
+                        tracker.updateCreatures({ creature, change: { remove_concentration: [status] } });
+                    }}
+                />
+            {/each}
+        {/if}
     </div>
     
     <!-- {#if creature.spellsPerDay} -->
@@ -187,6 +197,9 @@
         display: flex;
         flex-flow: row wrap;
         column-gap: 0.25rem;
+    }
+    :global(.initiative-tracker-condition-tooltip) {
+        max-width: 28rem;
     }
     
 

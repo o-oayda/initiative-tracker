@@ -33,6 +33,8 @@ export class Creature {
     level: number;
     player: boolean;
     status: Set<Condition> = new Set();
+    /** Abilities currently under concentration (separate from normal statuses) */
+    concentration: Set<Condition> = new Set();
     marker: string;
     initiative: number;
     manualOrder: number;
@@ -72,6 +74,16 @@ export class Creature {
         this.status = new Set(
             [...this.status].filter((s) => s.id != condition.id)
         );    }
+    addConcentration(cond: Condition) {
+        if (![...this.concentration].find(c => (c.linkText ?? c.name) === (cond.linkText ?? cond.name))) {
+            this.concentration.add(cond);
+        }
+    }
+    removeConcentration(cond: Condition) {
+        this.concentration = new Set(
+            [...this.concentration].filter((s) => s.id != cond.id && (s.linkText ?? s.name) !== (cond.linkText ?? cond.name))
+        );
+    }
     constructor(public creature: HomebrewCreature, initiative: number = 0) {
         this.name = creature.name;
         this.display = creature.display;
@@ -384,6 +396,7 @@ export class Creature {
             currentHP: this.hp,
             tempHP: this.temp,
             status: Array.from(this.status).map((c) => c.name),
+            concentrating: Array.from(this.concentration).map((c) => ({ link: c.link, linkText: c.linkText, name: c.name, kind: (c as any).kind })),
             enabled: this.enabled,
             level: this.level,
             player: this.player,
@@ -428,6 +441,16 @@ export class Creature {
             }
         }
         creature.status = new Set(statuses);
+        // Restore concentration (linked abilities) if present
+        if ((state as any).concentrating?.length) {
+            const concList: Condition[] = [];
+            for (const item of (state as any).concentrating as any[]) {
+                if (item?.link) {
+                    concList.push({ name: item.name ?? 'Concentrating on', description: null, id: getId(), link: item.link, linkText: item.linkText ?? null, kind: item.kind } as any);
+                }
+            }
+            creature.concentration = new Set(concList);
+        }
         creature.active = state.active;
         // Restore per-day resources from state; otherwise try to infer from source
         if (state.resourcesPerDay) {
