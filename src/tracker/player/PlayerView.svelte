@@ -17,27 +17,66 @@
     let elapsedMs = 0;
     let timerInterval: ReturnType<typeof setInterval> | null = null;
     let activeTurnId: Creature["id"] | null = null;
+    let timerStarted = false;
+    let paused = false;
 
-    const stopTimer = () => {
+    const clearTimerInterval = () => {
         if (timerInterval !== null) {
             clearInterval(timerInterval);
             timerInterval = null;
         }
+    };
+
+    const resetTimer = () => {
+        clearTimerInterval();
         turnStart = null;
         elapsedMs = 0;
+        activeTurnId = null;
+        timerStarted = false;
+        paused = false;
+    };
+
+    const prepareIdleTimer = () => {
+        clearTimerInterval();
+        turnStart = null;
+        elapsedMs = 0;
+        timerStarted = false;
+        paused = false;
     };
 
     const startTimer = () => {
-        if (timerInterval !== null) {
-            clearInterval(timerInterval);
-        }
+        clearTimerInterval();
         turnStart = Date.now();
         elapsedMs = 0;
+        timerStarted = true;
+        paused = false;
         timerInterval = setInterval(() => {
             if (turnStart !== null) {
                 elapsedMs = Date.now() - turnStart;
             }
         }, 1000);
+    };
+
+    const resumeTimer = () => {
+        clearTimerInterval();
+        turnStart = Date.now() - elapsedMs;
+        timerStarted = true;
+        paused = false;
+        timerInterval = setInterval(() => {
+            if (turnStart !== null) {
+                elapsedMs = Date.now() - turnStart;
+            }
+        }, 1000);
+    };
+
+    const pauseTimer = () => {
+        if (!timerStarted || paused) return;
+        if (turnStart !== null) {
+            elapsedMs = Date.now() - turnStart;
+        }
+        clearTimerInterval();
+        turnStart = null;
+        paused = true;
     };
 
     const formatElapsed = (ms: number) => {
@@ -50,7 +89,7 @@
     };
 
     onDestroy(() => {
-        stopTimer();
+        resetTimer();
     });
 
     const hoverLink = (evt: MouseEvent, href: string) => {
@@ -102,15 +141,32 @@
     const friendIcon = (node: HTMLElement) => {
         setIcon(node, FRIENDLY);
     };
+    const pauseIcon = (node: HTMLElement) => {
+        setIcon(node, "pause");
+    };
+
+    $: activeCreature = $ordered.find((creature) => creature.active);
 
     $: {
-        const active = $ordered.find((creature) => creature.active);
-        if (!$state || !active) {
-            activeTurnId = null;
-            stopTimer();
-        } else if (active.id !== activeTurnId) {
-            activeTurnId = active.id;
-            startTimer();
+        if (!activeCreature) {
+            resetTimer();
+        } else {
+            if (activeCreature.id !== activeTurnId) {
+                activeTurnId = activeCreature.id;
+                if ($state) {
+                    startTimer();
+                } else {
+                    prepareIdleTimer();
+                }
+            } else if ($state) {
+                if (!timerStarted) {
+                    startTimer();
+                } else if (turnStart === null && paused) {
+                    resumeTimer();
+                }
+            } else if (timerStarted && !paused) {
+                pauseTimer();
+            }
         }
     }
 </script>
@@ -179,9 +235,20 @@
         </tbody>
     </table>
 
-    {#if $state && turnStart !== null}
-        <div class="turn-timer">
-            <span class="timer-label">Turn Timer</span>
+    {#if activeTurnId !== null && (timerStarted || paused)}
+        <div class="turn-timer" class:paused={paused}>
+            <div class="timer-header">
+                <span class="timer-label">Turn Timer</span>
+                {#if paused}
+                    <span
+                        class="timer-status"
+                        aria-label="Timer paused"
+                        title="Timer paused"
+                    >
+                        <span class="pause-icon" aria-hidden="true" use:pauseIcon />
+                    </span>
+                {/if}
+            </div>
             <span class="timer-value">{formatElapsed(elapsedMs)}</span>
         </div>
     {/if}
@@ -279,14 +346,37 @@
         display: flex;
         flex-direction: column;
         align-items: flex-end;
-        gap: 0.1rem;
+        gap: 0.2rem;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+    .turn-timer.paused {
+        opacity: 0.9;
+    }
+    .timer-header {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
     }
     .turn-timer .timer-label {
         font-size: 0.75rem;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         color: var(--text-muted);
+    }
+    .timer-status {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 999px;
+        background: var(--background-primary-alt);
+        border: 1px solid var(--background-modifier-border);
+    }
+    .pause-icon {
+        display: inline-flex;
+        width: 0.75rem;
+        height: 0.75rem;
     }
     .turn-timer .timer-value {
         font-size: 1.25rem;
