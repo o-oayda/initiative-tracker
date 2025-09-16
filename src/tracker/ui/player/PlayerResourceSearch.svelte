@@ -14,7 +14,8 @@
 
     type Entry = {
         path: string;
-        name: string;
+        name: string; // vault basename
+        displayName: string; // alias or fallback to basename
         level: number | null;
         tags: string[];
     };
@@ -67,6 +68,32 @@
         return tags;
     };
 
+    const extractAlias = (cache: any): string | null => {
+        try {
+            const fm = cache?.frontmatter;
+            if (!fm) return null;
+            for (const key of Object.keys(fm)) {
+                if (key.toLowerCase() !== "alias" && key.toLowerCase() !== "aliases") continue;
+                const value = fm[key];
+                const normalize = (v: any) => {
+                    if (v == null) return null;
+                    const str = String(v).trim();
+                    return str.length ? str : null;
+                };
+                if (Array.isArray(value)) {
+                    for (const v of value) {
+                        const norm = normalize(v);
+                        if (norm) return norm;
+                    }
+                } else {
+                    const norm = normalize(value);
+                    if (norm) return norm;
+                }
+            }
+        } catch {}
+        return null;
+    };
+
     let tagPrefix = "spell/level/";
     $: tagPrefix = mode === "spell" ? "spell/level/" : "power/level/";
 
@@ -91,9 +118,11 @@
                 if (!cache) continue;
                 const tags = collectTags(cache);
                 if (!tags.some((t) => t.startsWith(tagPrefix))) continue;
+                const alias = extractAlias(cache);
                 collected.push({
                     path: file.path,
                     name: file.basename,
+                    displayName: alias ?? file.basename,
                     level: extractLevel(tags),
                     tags
                 });
@@ -112,6 +141,7 @@
     const matchesQuery = (entry: Entry, q: string) => {
         if (!q) return true;
         if (entry.name.toLowerCase().includes(q)) return true;
+        if (entry.displayName.toLowerCase().includes(q)) return true;
         if (entry.path.toLowerCase().includes(q)) return true;
         return false;
     };
@@ -190,7 +220,7 @@
                             {#if entry.level !== null}
                                 <span class="pill">Level {entry.level}</span>
                             {/if}
-                            <span class="result-name">{entry.name}</span>
+                            <span class="result-name">{entry.displayName}</span>
                         </div>
                     </button>
                 </li>
@@ -201,7 +231,7 @@
         <div class="selection-summary">
             <div class="summary-header">
                 <span>Ready:</span>
-                <span class="summary-name">{selected.name}</span>
+                <span class="summary-name">{selected.displayName}</span>
                 {#if selected.level !== null}
                     <span class="summary-level">(Level {selected.level})</span>
                 {/if}

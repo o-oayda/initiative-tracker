@@ -8,6 +8,7 @@ import { getId } from "src/utils/creature";
 type ResourceEntry = {
     path: string;
     name: string;
+    displayName: string;
     level: number | null;
     tags: string[];
 };
@@ -62,12 +63,12 @@ export default class PlayerResourceModal extends Modal {
             this.creature.concentration = new Set();
         }
         const current = this.creature.concentration;
-        const already = [...current].find((c: any) => c?.link === entry.path || c?.linkText === entry.name);
+        const already = [...current].find((c: any) => c?.link === entry.path || c?.linkText === (entry.displayName ?? entry.name));
         if (already) return;
         const status = {
             name: "Concentration",
             link: entry.path,
-            linkText: entry.name,
+            linkText: entry.displayName ?? entry.name,
             id: getId(),
             kind
         } as any;
@@ -76,6 +77,6 @@ export default class PlayerResourceModal extends Modal {
             change.remove_concentration = [...current];
         }
         tracker.updateCreatures({ creature: this.creature, change });
-        new Notice(`Concentration started: ${entry.name}`, 2000);
+        new Notice(`Concentration started: ${entry.displayName ?? entry.name}`, 2000);
     }
 }
