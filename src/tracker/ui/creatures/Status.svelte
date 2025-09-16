@@ -78,7 +78,7 @@
     }
     .tag {
         color: var(--text-muted);
-        font-size: small;
+        font-size: 0.7rem;
         width: fit-content;
         border-color: var(--border-color);
         border-radius: 0.25rem;
@@ -110,6 +110,10 @@
     }
     .tag :global(.clickable-icon) {
         margin: 0;
+        transform-origin: center;
+        width: 16px;
+        height: 16px;
+        padding: 0;
     }
     .icon {
         display: flex;

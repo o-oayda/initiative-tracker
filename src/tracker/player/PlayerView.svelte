@@ -156,6 +156,15 @@
     const friendIcon = (node: HTMLElement) => {
         setIcon(node, FRIENDLY);
     };
+    const wandIcon = (node: HTMLElement) => {
+        setIcon(node, "wand");
+    };
+    const brainIcon = (node: HTMLElement) => {
+        setIcon(node, "brain");
+    };
+    const sparklesIcon = (node: HTMLElement) => {
+        setIcon(node, "sparkles");
+    };
     const pauseIcon = (node: HTMLElement) => {
         setIcon(node, "pause");
     };
@@ -234,24 +243,33 @@
                             {/each}
                         </div>
                     </td>
-                    <td class="center">
-                        <div class="concentrating-list">
-                            {#if creature.concentration?.size}
-                                {#each [...creature.concentration] as status}
-                                    <div class="concentrating-line">
-                                        <a
-                                            class="internal-link"
-                                            href={status.link}
-                                            data-href={status.link}
-                                            on:click|preventDefault={() => plugin.app.workspace.openLinkText(status.link, "/", false)}
-                                            on:mouseenter={(evt) => hoverLink(evt, status.link)}
-                                        >{status.linkText ?? status.link}</a>
-                                    </div>
-                                {/each}
-                            {/if}
-                        </div>
-                    </td>
-                </tr>
+                <td class="concentrating-cell">
+                    <div class="concentrating-list">
+                        {#if creature.concentration?.size}
+                            {#each [...creature.concentration] as status}
+                                <div class="concentrating-line">
+                                    <span class="concentration-icon" class:spell={status.kind === 'spell'} class:power={status.kind === 'power'}>
+                                        {#if status.kind === 'spell'}
+                                            <span class="icon" use:wandIcon aria-hidden="true" />
+                                        {:else if status.kind === 'power'}
+                                            <span class="icon" use:brainIcon aria-hidden="true" />
+                                        {:else}
+                                            <span class="icon" use:sparklesIcon aria-hidden="true" />
+                                        {/if}
+                                    </span>
+                                    <a
+                                        class="internal-link"
+                                        href={status.link}
+                                        data-href={status.link}
+                                        on:click|preventDefault={() => plugin.app.workspace.openLinkText(status.link, "/", false)}
+                                        on:mouseenter={(evt) => hoverLink(evt, status.link)}
+                                    >{status.linkText ?? status.link}</a>
+                                </div>
+                            {/each}
+                        {/if}
+                    </div>
+                </td>
+            </tr>
             {/each}
         </tbody>
     </table>
@@ -351,9 +369,35 @@
         display: flex;
         flex-direction: column;
         gap: 0.1rem;
-        align-items: center; /* keep centered to match column */
+        align-items: flex-start;
+        text-align: left;
     }
-    .concentrating-line { white-space: nowrap; }
+    .concentrating-line {
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .concentrating-cell {
+        text-align: left;
+        vertical-align: top;
+    }
+    .concentration-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+    .concentration-icon .icon {
+        display: inline-flex;
+        width: 1rem;
+        height: 1rem;
+    }
+    .concentration-icon .icon :global(svg) {
+        width: 100%;
+        height: 100%;
+    }
     .active {
         background-color: rgba(0, 0, 0, 0.1);
     }

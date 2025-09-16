@@ -197,6 +197,7 @@
         display: flex;
         flex-flow: row wrap;
         column-gap: 0.25rem;
+        font-size: 0.75rem;
     }
     :global(.initiative-tracker-condition-tooltip) {
         max-width: 28rem;
