@@ -15,6 +15,7 @@
     import type InitiativeTracker from "src/main";
     import { tracker } from "src/tracker/stores/tracker";
     import SpellCastingModal from "../spells/modal";
+    import PlayerResourceModal from "../player/resource-modal";
 
     const dispatch = createEventDispatcher();
 
@@ -54,6 +55,22 @@
                         tracker.setUpdate(creature, e);
                     });
             });
+            if (creature.player) {
+                menu.addItem((item) => {
+                    item.setIcon("wand")
+                        .setTitle("Cast Spells")
+                        .onClick(() => {
+                            new PlayerResourceModal(plugin, creature, "spell").open();
+                        });
+                });
+                menu.addItem((item) => {
+                    item.setIcon("brain")
+                        .setTitle("Manifest Powers")
+                        .onClick(() => {
+                            new PlayerResourceModal(plugin, creature, "power").open();
+                        });
+                });
+            }
             // resourcesPerDay should already be present on the creature
             if (creature.resourcesPerDay && Object.keys(creature.resourcesPerDay).length) {
                 const kinds = new Set(
