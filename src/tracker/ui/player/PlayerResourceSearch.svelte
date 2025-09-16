@@ -1,6 +1,7 @@
 <script lang="ts">
     import { SyncLoader } from "svelte-loading-spinners";
-    import { onMount, setContext } from "svelte";
+    import { onMount, setContext, createEventDispatcher } from "svelte";
+    import { TFile } from "obsidian";
     import type InitiativeTracker from "src/main";
     import type { Creature } from "src/utils/creature";
 
@@ -9,6 +10,7 @@
     export let mode: "spell" | "power";
 
     setContext<InitiativeTracker>("plugin", plugin);
+    const dispatch = createEventDispatcher();
 
     type Entry = {
         path: string;
@@ -20,7 +22,12 @@
     let entries: Entry[] = [];
     let loading = true;
     let query = "";
+    let selected: Entry | null = null;
+    let checkingConcentration = false;
+    let requiresConcentration: boolean | null = null;
+    let concentrationMessage: string | null = null;
     $: creatureName = creature?.getName?.() ?? creature?.name ?? "";
+    $: castLabel = mode === "spell" ? "Cast" : "Manifest";
 
     const normalizeTag = (tag: unknown): string | null => {
         if (!tag) return null;
@@ -60,7 +67,8 @@
         return tags;
     };
 
-    const tagPrefix = mode === "spell" ? "spell/level/" : "power/level/";
+    let tagPrefix = "spell/level/";
+    $: tagPrefix = mode === "spell" ? "spell/level/" : "power/level/";
 
     const extractLevel = (tags: string[]): number | null => {
         for (const tag of tags) {
@@ -114,6 +122,40 @@
     const openFile = (entry: Entry) => {
         plugin.app.workspace.openLinkText(entry.path, "/", false);
     };
+
+    const concentrationRegex = /(^|\n)\s*[-*]?\s*(?:\*\*|__)?duration\s*[:\.\-\u2014\u2013]?(?:\*\*|__)?\s*[:\.\-\u2014\u2013]?\s*concentration\b/i;
+
+    const selectEntry = async (entry: Entry) => {
+        selected = entry;
+        checkingConcentration = true;
+        requiresConcentration = null;
+        concentrationMessage = null;
+        try {
+            const file = plugin.app.vault.getAbstractFileByPath(entry.path);
+            if (!(file instanceof TFile)) {
+                requiresConcentration = false;
+                concentrationMessage = "Unable to locate note";
+                return;
+            }
+            const content = await plugin.app.vault.cachedRead(file);
+            const requires = concentrationRegex.test(content);
+            requiresConcentration = requires;
+            concentrationMessage = null;
+        } catch (e) {
+            requiresConcentration = null;
+            concentrationMessage = "Unable to determine concentration";
+        } finally {
+            checkingConcentration = false;
+        }
+    };
+
+    const castSelected = () => {
+        if (!selected) return;
+        dispatch("cast", {
+            entry: selected,
+            requiresConcentration: !!requiresConcentration
+        });
+    };
 </script>
 
 <div class="resource-search">
@@ -138,7 +180,12 @@
         <ul class="results">
             {#each filtered as entry}
                 <li>
-                    <button type="button" on:click={() => openFile(entry)}>
+                    <button
+                        type="button"
+                        class:selected={selected?.path === entry.path}
+                        on:click={() => selectEntry(entry)}
+                        on:dblclick={() => openFile(entry)}
+                    >
                         <div class="result-line">
                             {#if entry.level !== null}
                                 <span class="pill">Level {entry.level}</span>
@@ -150,12 +197,49 @@
             {/each}
         </ul>
     {/if}
+    {#if selected}
+        <div class="selection-summary">
+            <div class="summary-header">
+                <span>Ready:</span>
+                <span class="summary-name">{selected.name}</span>
+                {#if selected.level !== null}
+                    <span class="summary-level">(Level {selected.level})</span>
+                {/if}
+            </div>
+            <div class="summary-meta">
+                {#if checkingConcentration}
+                    Checking concentration...
+                {:else}
+                    {#if requiresConcentration === true}
+                        <span class="concentration-flag requires">✔ Requires concentration</span>
+                    {:else if requiresConcentration === false}
+                        <span class="concentration-flag none">No concentration required</span>
+                    {:else}
+                        <span class="concentration-flag unknown">Concentration unknown</span>
+                    {/if}
+                {/if}
+                {#if concentrationMessage && !checkingConcentration}
+                    <span class="summary-message">{concentrationMessage}</span>
+                {/if}
+            </div>
+            <div class="summary-actions">
+                <button
+                    type="button"
+                    class="cast-button"
+                    on:click={castSelected}
+                    disabled={!selected || checkingConcentration}
+                >
+                    {castLabel}
+                </button>
+                <button type="button" class="open-button" on:click={() => selected && openFile(selected)}>
+                    Open Note
+                </button>
+            </div>
+        </div>
+    {/if}
 </div>
 
 <style scoped>
-    :global(.player-resource-modal-content) {
-        padding: 0.75rem 0.75rem 1rem;
-    }
     :global(.player-resource-modal-content) {
         padding: 0.75rem 0.75rem 1rem;
     }
@@ -213,6 +297,10 @@
         box-sizing: border-box;
         overflow-wrap: anywhere;
     }
+    .results li button.selected {
+        border-color: var(--interactive-accent);
+        background: var(--background-secondary);
+    }
     .results li button:hover {
         background: var(--background-secondary);
     }
@@ -235,5 +323,72 @@
         padding: 0.1rem 0.4rem;
         border-radius: 999px;
         color: var(--text-muted);
+    }
+    .selection-summary {
+        margin-top: 1rem;
+        padding: 0.75rem;
+        border-radius: 0.5rem;
+        border: 1px solid var(--background-modifier-border);
+        background: var(--background-primary);
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+    .summary-header {
+        font-weight: 600;
+        display: flex;
+        gap: 0.35rem;
+        align-items: baseline;
+    }
+    .summary-name {
+        font-weight: 700;
+    }
+    .summary-level {
+        font-weight: 500;
+        color: var(--text-muted);
+    }
+    .summary-meta {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    .concentration-flag.requires {
+        color: var(--text-accent);
+        font-weight: 600;
+    }
+    .concentration-flag.none {
+        color: var(--text-muted);
+    }
+    .concentration-flag.unknown {
+        color: var(--text-muted);
+        font-style: italic;
+    }
+    .summary-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .cast-button {
+        background: var(--interactive-accent);
+        color: var(--text-on-accent);
+        border: none;
+        border-radius: 0.5rem;
+        padding: 0.4rem 0.8rem;
+        cursor: pointer;
+    }
+    .cast-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    .open-button {
+        border: 1px solid var(--background-modifier-border);
+        border-radius: 0.5rem;
+        padding: 0.4rem 0.8rem;
+        background: var(--background-secondary);
+        color: inherit;
+        cursor: pointer;
     }
 </style>
