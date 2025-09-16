@@ -29,15 +29,13 @@
     {#if $party}
         <h4 class="initiave-tracker-party">{$party}</h4>
     {/if}
-    {#if $state}
-        <div class="initiative-tracker-round-container">
-            <small>
-                <em>
-                    Round {$round}
-                </em>
-            </small>
-        </div>
-    {/if}
+    <div class="initiative-tracker-round-container">
+        <small>
+            <em>
+                Round {$round}
+            </em>
+        </small>
+    </div>
 </div>
 
 <style scoped>
