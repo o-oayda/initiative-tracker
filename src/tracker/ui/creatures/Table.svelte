@@ -94,6 +94,7 @@
                     class="draggable initiative-tracker-creature"
                     class:disabled={!creature.enabled}
                     class:active={$state && creature.active}
+                    class:paused-active={!$state && creature.active}
                     class:viewing={creature.viewing}
                     class:friendly={creature.friendly}
                     animate:flip={{ duration: flipDurationMs }}
@@ -161,6 +162,26 @@
     }
     :global(.theme-dark) .initiative-tracker-creature.active {
         background-color: rgba(255, 255, 255, 0.1);
+    }
+    .initiative-tracker-creature.paused-active {
+        background-color: inherit;
+        background-image: repeating-linear-gradient(
+            45deg,
+            transparent 0,
+            transparent 8px,
+            rgba(0, 0, 0, 0.1) 8px,
+            rgba(0, 0, 0, 0.1) 16px
+        );
+    }
+    :global(.theme-dark) .initiative-tracker-creature.paused-active {
+        background-color: inherit;
+        background-image: repeating-linear-gradient(
+            45deg,
+            transparent 0,
+            transparent 8px,
+            rgba(255, 255, 255, 0.1) 8px,
+            rgba(255, 255, 255, 0.1) 16px
+        );
     }
     .initiative-tracker-creature.disabled :global(*) {
         color: var(--text-faint);

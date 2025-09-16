@@ -3,7 +3,7 @@
     import { fade } from "svelte/transition";
     import { SyncLoader } from "svelte-loading-spinners";
 
-    import { AC, FRIENDLY, HP, INITIATIVE } from "src/utils";
+    import { AC, FRIENDLY, HP, INITIATIVE, RESTART } from "src/utils";
     import type { Creature } from "src/utils/creature";
     import { createEventDispatcher, onDestroy, setContext } from "svelte";
     import type InitiativeTracker from "src/main";
@@ -79,6 +79,21 @@
         paused = true;
     };
 
+    const resetCurrentTimer = () => {
+        if (!activeTurnId) return;
+        if ($state) {
+            startTimer();
+            return;
+        }
+        if (timerStarted || paused) {
+            clearTimerInterval();
+            elapsedMs = 0;
+            turnStart = null;
+            paused = true;
+            timerStarted = true;
+        }
+    };
+
     const formatElapsed = (ms: number) => {
         const totalSeconds = Math.max(0, Math.floor(ms / 1000));
         const minutes = Math.floor(totalSeconds / 60)
@@ -144,6 +159,9 @@
     const pauseIcon = (node: HTMLElement) => {
         setIcon(node, "pause");
     };
+    const resetIcon = (node: HTMLElement) => {
+        setIcon(node, RESTART);
+    };
 
     $: activeCreature = $ordered.find((creature) => creature.active);
 
@@ -182,7 +200,10 @@
         </thead>
         <tbody>
             {#each activeAndVisible as creature (creature.id)}
-                <tr class:active={amIActive(creature) && $state}>
+                <tr
+                    class:active={amIActive(creature) && $state}
+                    class:paused-active={amIActive(creature) && !$state}
+                >
                     <td class="center">{creature.initiative}</td>
                     <td class='name'>
                         <div class="name-content">
@@ -239,6 +260,17 @@
         <div class="turn-timer" class:paused={paused}>
             <div class="timer-header">
                 <span class="timer-label">Turn Timer</span>
+            </div>
+            <div class="timer-value">
+                <button
+                    class="timer-reset"
+                    type="button"
+                    on:click={resetCurrentTimer}
+                    aria-label="Reset turn timer"
+                    title="Reset turn timer"
+                >
+                    <span class="reset-icon" aria-hidden="true" use:resetIcon />
+                </button>
                 {#if paused}
                     <span
                         class="timer-status"
@@ -248,8 +280,8 @@
                         <span class="pause-icon" aria-hidden="true" use:pauseIcon />
                     </span>
                 {/if}
+                <span class="timer-digits">{formatElapsed(elapsedMs)}</span>
             </div>
-            <span class="timer-value">{formatElapsed(elapsedMs)}</span>
         </div>
     {/if}
 </div>
@@ -328,12 +360,25 @@
     :global(.theme-dark) .active {
         background-color: rgba(255, 255, 255, 0.1);
     }
-    /* Subtle horizontal rules between rows */
-    tbody tr td {
-        border-bottom: 1px solid var(--background-modifier-border);
+    .paused-active {
+        background-color: inherit;
+        background-image: repeating-linear-gradient(
+            45deg,
+            transparent 0,
+            transparent 8px,
+            rgba(0, 0, 0, 0.1) 8px,
+            rgba(0, 0, 0, 0.1) 16px
+        );
     }
-    tbody tr:first-child td {
-        border-top: 1px solid var(--background-modifier-border);
+    :global(.theme-dark) .paused-active {
+        background-color: inherit;
+        background-image: repeating-linear-gradient(
+            45deg,
+            transparent 0,
+            transparent 8px,
+            rgba(255, 255, 255, 0.1) 8px,
+            rgba(255, 255, 255, 0.1) 16px
+        );
     }
     .turn-timer {
         position: absolute;
@@ -355,13 +400,50 @@
     .timer-header {
         display: flex;
         align-items: center;
-        gap: 0.4rem;
     }
     .turn-timer .timer-label {
         font-size: 0.75rem;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         color: var(--text-muted);
+    }
+    .timer-value {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .timer-reset {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.25rem;
+        height: 1.25rem;
+        border-radius: 999px;
+        border: 1px solid var(--background-modifier-border);
+        background: var(--background-secondary);
+        color: var(--text-muted);
+        padding: 0;
+        cursor: pointer;
+    }
+    .timer-reset:hover {
+        color: var(--text-normal);
+        background: var(--background-primary-alt);
+    }
+    .timer-reset:focus {
+        outline: none;
+        box-shadow: 0 0 0 1px var(--interactive-accent);
+    }
+    .timer-reset:active {
+        transform: scale(0.95);
+    }
+    .timer-reset .reset-icon {
+        display: inline-flex;
+        width: 0.75rem;
+        height: 0.75rem;
+    }
+    .timer-reset .reset-icon :global(svg) {
+        width: 100%;
+        height: 100%;
     }
     .timer-status {
         display: inline-flex;
@@ -375,10 +457,16 @@
     }
     .pause-icon {
         display: inline-flex;
+        align-items: center;
+        justify-content: center;
         width: 0.75rem;
         height: 0.75rem;
     }
-    .turn-timer .timer-value {
+    .pause-icon :global(svg) {
+        width: 100%;
+        height: 100%;
+    }
+    .timer-digits {
         font-size: 1.25rem;
         font-weight: 600;
         font-variant-numeric: tabular-nums;
