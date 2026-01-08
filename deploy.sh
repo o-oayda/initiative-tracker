@@ -3,7 +3,7 @@
 # Usage: ./deploy.sh [target-directory]
 TARGET_DIR="${1:-obsidian-test-ground}"
 # Plugin folder must match manifest.json "id"
-PLUGIN_ID="initiative-tracker-resources"
+PLUGIN_ID="initiative-tracker-custom"
 TARGET_PATH="$HOME/Documents/${TARGET_DIR}/.obsidian/plugins/${PLUGIN_ID}/"
 SRC_DIR="$HOME/Documents/initiative-tracker"
 FILES=(main.js manifest.json styles.css)
