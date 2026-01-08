@@ -3,7 +3,7 @@
 
     import type InitiativeTracker from "src/main";
     import { tracker } from "src/tracker/stores/tracker";
-    import { START_ENCOUNTER } from "src/utils";
+    import { START_ENCOUNTER, getRpgSystem } from "src/utils";
     import { Creature } from "src/utils/creature";
     import type { StackRoller } from "@javalent/dice-roller";
     import { setContext } from "svelte";
@@ -16,22 +16,48 @@
 
     const creatureMap: Map<Creature, number> = new Map();
     const rollerMap: Map<Creature, StackRoller> = new Map();
+    let totalXp: number | null = null;
+
+    const updateTotalXp = () => {
+        const rpgSystem = getRpgSystem(plugin);
+        if (!creatureMap.size) {
+            totalXp = null;
+            return;
+        }
+        let sum = 0;
+        for (const [creature, count] of creatureMap) {
+            const xp = rpgSystem.getCreatureDifficulty(creature, []);
+            const qty = Number(count) || 0;
+            if (!isFinite(xp) || xp === undefined || xp === null) {
+                totalXp = null;
+                return;
+            }
+            sum += xp * qty;
+        }
+        totalXp = sum;
+    };
+
+    const setCreatureCount = (creature: Creature, value: number) => {
+        creatureMap.set(creature, value);
+        updateTotalXp();
+    };
 
     for (let [creature, count] of creatures) {
         let number: number = Number(count);
         if (plugin.canUseDiceRoller) {
             let roller = plugin.getRoller(`${count}`);
             if (!roller) {
-                creatureMap.set(creature, number);
+                setCreatureCount(creature, number);
             } else {
                 roller.on("new-result", () => {
-                    creatureMap.set(creature, roller.result);
+                    setCreatureCount(creature, roller.result);
                 });
                 rollerMap.set(creature, roller);
                 roller.rollSync();
+                setCreatureCount(creature, roller.result);
             }
         } else {
-            creatureMap.set(creature, number);
+            setCreatureCount(creature, number);
         }
     }
 
@@ -142,6 +168,9 @@
                     ></span
                 >
             {/each}
+            {#if totalXp !== null}
+                <span class="encounter-total-xp">Total XP: {totalXp}</span>
+            {/if}
         {:else}
             -
         {/if}
@@ -173,5 +202,10 @@
     }
     .icons > span :global(.clickable-icon) {
         margin-right: 0;
+    }
+    .encounter-total-xp {
+        margin-left: 0.75rem;
+        font-style: italic;
+        color: var(--text-muted);
     }
 </style>
