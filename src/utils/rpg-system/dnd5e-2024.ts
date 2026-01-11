@@ -1,4 +1,4 @@
-import { RpgSystem } from "./rpgSystem";
+import { RpgSystem, type EncounterLevelEstimate } from "./rpgSystem";
 import { crToString, getFromCreatureOrBestiary } from "..";
 import type InitiativeTracker from "src/main";
 import type { DifficultyLevel, GenericCreature, DifficultyThreshold } from ".";
@@ -175,6 +175,85 @@ ${thresholdSummary}`;
                 minValue: value
             }))
             .sort((a, b) => a.minValue - b.minValue);
+    }
+
+    getClosestEncounterDifficulty(
+        totalXp: number,
+        partySize: number = 4
+    ): EncounterLevelEstimate | null {
+        if (!isFinite(totalXp) || totalXp <= 0) return null;
+        const size = Math.max(1, partySize);
+        const bands = ["moderate", "low", "high"] as const;
+        const levels = Object.keys(XP_THRESHOLDS_PER_LEVEL)
+            .map((lvl) => Number(lvl))
+            .filter((lvl) => !isNaN(lvl))
+            .sort((a, b) => a - b);
+
+        // Prefer Moderate thresholds when the encounter sits between two budgets,
+        // except that we favor whichever threshold represents the higher-tier
+        // encounter (High > Moderate > Low). When diffs tie we compare each
+        // option's budget to the encounter XP: if we're still under budget we
+        // favor the higher threshold; otherwise we favor the lower threshold.
+        const priority: Record<string, number> = {
+            high: 2,
+            moderate: 1,
+            low: 0
+        };
+        let best:
+            | {
+                  level: number;
+                  band: string;
+                  diff: number;
+                  budget: number;
+                  priority: number;
+              }
+            | null = null;
+
+        for (const level of levels) {
+            for (const band of bands) {
+                const perCharacter = XP_THRESHOLDS_PER_LEVEL[level]?.[band];
+                if (!perCharacter) continue;
+                const budget = perCharacter * size;
+                const diff = Math.abs(budget - totalXp);
+                const tier = priority[band];
+                if (!best || diff < best.diff) {
+                    best = { level, band, diff, budget, priority: tier };
+                } else if (diff === best.diff) {
+                    const candidateAbove = budget >= totalXp;
+                    const bestAbove = best.budget >= totalXp;
+
+                    if (candidateAbove && !bestAbove) {
+                        best = { level, band, diff, budget, priority: tier };
+                        continue;
+                    }
+                    if (!candidateAbove && bestAbove) {
+                        continue;
+                    }
+                    if (candidateAbove && bestAbove) {
+                        if (
+                            tier > best.priority ||
+                            (tier === best.priority &&
+                                (budget > best.budget || level > best.level))
+                        ) {
+                            best = { level, band, diff, budget, priority: tier };
+                        }
+                    } else {
+                        if (
+                            tier < best.priority ||
+                            (tier === best.priority &&
+                                (budget < best.budget || level < best.level))
+                        ) {
+                            best = { level, band, diff, budget, priority: tier };
+                        }
+                    }
+                }
+            }
+        }
+        if (!best) return null;
+        return {
+            level: best.level,
+            band: best.band.charAt(0).toUpperCase() + best.band.slice(1)
+        };
     }
 
 }

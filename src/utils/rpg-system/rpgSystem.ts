@@ -1,5 +1,14 @@
 import { DEFAULT_UNDEFINED } from "../constants";
-import type { GenericCreature, DifficultyLevel, DifficultyThreshold } from "./index";
+import type {
+    GenericCreature,
+    DifficultyLevel,
+    DifficultyThreshold
+} from "./index";
+
+export type EncounterLevelEstimate = {
+    level: number;
+    band?: string;
+};
 
 export abstract class RpgSystem {
   abstract systemDifficulties: [string, string, ...string[]];
@@ -61,4 +70,15 @@ export abstract class RpgSystem {
   getAdditionalDifficultyBudgets(playerLevels: number[]): DifficultyThreshold[] {
     return []
   }
+
+    /**
+     * Returns the level/band combo whose XP budget (for the provided party
+     * size) is closest to the given encounter total. Default: unsupported.
+     */
+    getClosestEncounterDifficulty(
+        _totalXp: number,
+        _partySize: number = 4
+    ): EncounterLevelEstimate | null {
+        return null;
+    }
 }

@@ -17,11 +17,27 @@
     const creatureMap: Map<Creature, number> = new Map();
     const rollerMap: Map<Creature, StackRoller> = new Map();
     let totalXp: number | null = null;
+    let closestMatch:
+        | {
+              level: number;
+              band?: string;
+          }
+        | null = null;
+    let closestLabel = "Total XP";
+    let summaryLabel = "";
+
+    $: closestLabel = closestMatch
+        ? `${closestMatch.band ? `${closestMatch.band} ` : ""}L${
+              closestMatch.level
+          }`
+        : "Total XP";
+    $: summaryLabel = totalXp !== null ? `${totalXp} — ${closestLabel}` : "";
 
     const updateTotalXp = () => {
         const rpgSystem = getRpgSystem(plugin);
         if (!creatureMap.size) {
             totalXp = null;
+            closestMatch = null;
             return;
         }
         let sum = 0;
@@ -30,11 +46,13 @@
             const qty = Number(count) || 0;
             if (!isFinite(xp) || xp === undefined || xp === null) {
                 totalXp = null;
+                closestMatch = null;
                 return;
             }
             sum += xp * qty;
         }
         totalXp = sum;
+        closestMatch = rpgSystem.getClosestEncounterDifficulty(sum, 4);
     };
 
     const setCreatureCount = (creature: Creature, value: number) => {
@@ -169,7 +187,7 @@
                 >
             {/each}
             {#if totalXp !== null}
-                <span class="encounter-total-xp">Total XP: {totalXp}</span>
+                <span class="encounter-total-xp">{summaryLabel}</span>
             {/if}
         {:else}
             -
@@ -205,7 +223,8 @@
     }
     .encounter-total-xp {
         margin-left: 0.75rem;
-        font-style: italic;
+        font-style: normal;
+        font-size: 0.85em;
         color: var(--text-muted);
     }
 </style>
