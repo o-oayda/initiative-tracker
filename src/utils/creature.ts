@@ -453,11 +453,16 @@ export class Creature {
         }
         creature.active = state.active;
         // Restore per-day resources from state; otherwise try to infer from source
-        if (state.resourcesPerDay) {
+        if (
+            state.resourcesPerDay &&
+            Object.keys(state.resourcesPerDay as any).length
+        ) {
             creature.resourcesPerDay = state.resourcesPerDay as any;
         } else {
             const base = plugin.getBaseCreatureFromBestiary?.(state.name);
-            creature.resourcesPerDay = Creature.readPerDayResources(base ?? state);
+            creature.resourcesPerDay = Creature.readPerDayResources(
+                base ?? state
+            );
         }
         return creature;
     }

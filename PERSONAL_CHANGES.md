@@ -38,6 +38,7 @@ This fork adds features to track per‑day resources (spells, powers, abilities)
 
 ## Fixes
 - Controls menu: prevent multiple popups — opening a new actions menu closes any existing instance
+- Inline encounter add/start now backfills `resourcesPerDay` for creatures with empty state, so Cast/Manifest/Use options appear when adding via `encounter:` buttons
 
 ## Styling/theming
 - Concentration tag colors respect theme `--color-blue-rgb`, `--color-pink-rgb`, and `--color-orange-rgb` with sensible fallbacks

@@ -197,6 +197,22 @@ export default class InitiativeTracker extends Plugin {
                 ) as SRDMonster;
             }
         } catch (e) {}
+        if (this.canUseStatBlocks) {
+            const norm = (s: string) =>
+                (s ?? "")
+                    .normalize("NFKD")
+                    .toLowerCase()
+                    .replace(/[\u2018\u2019\u201c\u201d'"]/g, "")
+                    .replace(/[^a-z0-9]+/g, "");
+            const target = norm(name);
+            if (target) {
+                const match = this.statblock_creatures.find((c) => {
+                    const candidate = norm(c?.name ?? "");
+                    return candidate && candidate === target;
+                });
+                if (match) return match;
+            }
+        }
         return null;
     }
     getCreatureFromBestiary(name: string) {

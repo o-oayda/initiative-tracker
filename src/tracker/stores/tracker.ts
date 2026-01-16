@@ -738,6 +738,20 @@ function createTracker() {
                 if (plugin.canUseDiceRoller && roll) {
                     setCreatureHP(items, plugin, roll);
                 }
+                for (const item of items) {
+                    if (
+                        !item.resourcesPerDay ||
+                        !Object.keys(item.resourcesPerDay).length
+                    ) {
+                        const base = plugin.getBaseCreatureFromBestiary?.(
+                            item.name
+                        );
+                        if (base) {
+                            item.resourcesPerDay =
+                                Creature.readPerDayResources(base);
+                        }
+                    }
+                }
 
                 creatures.push(...items);
                 const toRoll: Creature[] = [];
