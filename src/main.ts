@@ -99,7 +99,14 @@ export default class InitiativeTracker extends Plugin {
     }
 
     get canUseStatBlocks(): boolean {
-        if (this.app.plugins.enabledPlugins.has("obsidian-5e-statblocks")) {
+        const statblockPlugins = new Set([
+            "obsidian-5e-statblocks",
+            "obsidian-5e-statblocks-custom"
+        ]);
+        const hasStatblocks = Array.from(statblockPlugins).some((id) =>
+            this.app.plugins.enabledPlugins.has(id)
+        );
+        if (hasStatblocks) {
             return (window["FantasyStatblocks"]?.getVersion()?.major ?? 0) >= 4;
         }
         return false;
