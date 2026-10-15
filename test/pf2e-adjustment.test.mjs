@@ -57,7 +57,7 @@ test('Fantasy Statblocks PF2e level and HP display both adjust', () => {
     assert.equal(source.health[1].desc, '29');
 });
 
-test('creature display rows adjust once and preserve qualifiers, damage, and source', () => {
+test('creature display rows adjust once and preserve qualifiers, riders, and source', () => {
     const source = {
         name: 'Horned Dragon (Adult)', level: 'Creature 12', hp: 215, ac: 34, modifier: 22,
         perception: [{ name: 'Perception', desc: '+22; Darkvision, Scent (Imprecise) 60 Feet' }],
@@ -79,13 +79,54 @@ test('creature display rows adjust once and preserve qualifiers, damage, and sou
     assert.equal(elite.skills[0].desc, 'Acrobatics: +21, Athletics: +26, Forest Lore: +24; +1 to Track');
     assert.equal(elite.armorclass[0].desc, '36; __Fort__ +22, __Ref__ +24, __Will__ +25; +1 status to all saves vs. magic');
     assert.equal(elite.health[0].desc, '235; __Immunities__ paralyzed, poison');
-    assert.equal(elite.attacks[0].desc, '+28 (magical, reach 15 feet) __Damage__ 3d10 + 12 piercing 3d4 poison');
+    assert.equal(elite.attacks[0].desc, '+28 (magical, reach 15 feet) __Damage__ 3d10 + 14 piercing 3d4 poison');
     assert.equal(elite.attacks[1].desc, 'DC 34, attack +26; __4th __ _[[Spells/Suggestion|Suggestion]]_');
     assert.equal(elite.attacks[2].desc, source.attacks[2].desc);
     assert.equal(source.health[0].desc, '215; __Immunities__ paralyzed, poison');
     assert.equal(source.attacks[0].desc.startsWith('+26'), true);
-    assert.equal(rules.adjustedPf2eStatblock(source, 'weak').attacks[0].desc.startsWith('+24'), true);
+    assert.equal(rules.adjustedPf2eStatblock(source, 'weak').attacks[0].desc,
+        '+24 (magical, reach 15 feet) __Damage__ 3d10 + 10 piercing 3d4 poison');
     assert.equal(rules.adjustedPf2eStatblock(source, 'elite').attacks[0].desc.startsWith('+28'), true);
+});
+
+test('Strike damage adjusts the primary direct component once', () => {
+    const rows = [
+        ['+20 __Damage__ 1d6 force 3d6 + 13 piercing', '+22 __Damage__ 1d6 force 3d6 + 15 piercing'],
+        ['+20 __Damage__ 1d6 + 2 force 3d6 + 13 piercing', '+22 __Damage__ 1d6 + 2 force 3d6 + 15 piercing'],
+        ['+12 __Damage__ 1d4 bleed 1d4 + 4 piercing', '+14 __Damage__ 1d4 bleed 1d4 + 6 piercing'],
+        ['+12 __Damage__ 1d4 + 2 bleed 1d4 + 4 piercing', '+14 __Damage__ 1d4 + 2 bleed 1d4 + 6 piercing'],
+        ['+20 __Damage__ 3d10 + 11 bludgeoning plus grab 1d10 cold plus grab',
+            '+22 __Damage__ 3d10 + 13 bludgeoning plus grab 1d10 cold plus grab'],
+        ['+9 __Damage__ 3d6 acid', '+11 __Damage__ 3d6 + 2 acid'],
+        ['+7 __Damage__ 1d6 piercing plus venom', '+9 __Damage__ 1d6 + 2 piercing plus venom'],
+        ['+8 __Damage__ 1d4 - 1 piercing', '+10 __Damage__ 1d4 + 1 piercing']
+    ];
+    for (const [before, expected] of rows) {
+        const source = { level: 'Creature 3', attacks: [{ name: '**Melee** `pf2:1` Jaws', desc: before }] };
+        assert.equal(rules.adjustedPf2eStatblock(source, 'elite').attacks[0].desc, expected);
+        assert.equal(source.attacks[0].desc, before);
+    }
+    const weak = { level: 'Creature 3', attacks: [{ name: '**Ranged** `pf2:1` Spark', desc: '+8 __Damage__ 1d4 fire' }] };
+    assert.equal(rules.adjustedPf2eStatblock(weak, 'weak').attacks[0].desc, '+6 __Damage__ 1d4 - 2 fire');
+    assert.equal(rules.adjustedPf2eStatblock({ level: 'Creature 3', attacks: [
+        { name: '**Melee** Claw', desc: '+8 __Damage__ 1d4 + 1 slashing' }] }, 'weak').attacks[0].desc,
+        '+6 __Damage__ 1d4 - 1 slashing');
+});
+
+test('empty and unrecognized Strike damage stays unchanged', () => {
+    const source = { level: 'Creature 4', attacks: [
+        { name: '**Melee** Jaws', desc: '+11 __Damage__' },
+        { name: '**Ranged** Spit', desc: '+11 __Damage__ venom effect 1d6 acid' },
+        { name: '**Melee** Claw', desc: '+11 __Damage__ 1d6 mysterious damage' },
+        { name: '**Melee** Hook', desc: '+11 __Damage__ 1d4 + 2 bleed' },
+        { name: 'Venom Spray', desc: '__Damage__ 1d6 acid' }
+    ] };
+    const elite = rules.adjustedPf2eStatblock(source, 'elite');
+    assert.equal(elite.attacks[0].desc, '+13 __Damage__');
+    assert.equal(elite.attacks[1].desc, '+13 __Damage__ venom effect 1d6 acid');
+    assert.equal(elite.attacks[2].desc, '+13 __Damage__ 1d6 mysterious damage');
+    assert.equal(elite.attacks[3].desc, '+13 __Damage__ 1d4 + 2 bleed');
+    assert.equal(elite.attacks[4].desc, source.attacks[4].desc);
 });
 
 test('hazard statblocks are outside creature adjustment scope', () => {
@@ -100,5 +141,5 @@ test('duplicated custom creatures use their original nested statblock', () => {
     const duplicate = { ...wrapper, creature: wrapper };
     assert.equal(rules.originalPf2eStatblockSource(duplicate), raw);
     assert.equal(rules.adjustedPf2eStatblock(rules.originalPf2eStatblockSource(duplicate), 'elite').attacks[0].desc,
-        '+12 __Damage__ 1d8 + 4 slashing');
+        '+12 __Damage__ 1d8 + 6 slashing');
 });

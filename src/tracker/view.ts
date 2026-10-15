@@ -145,7 +145,7 @@ export class CreatureView extends ItemView {
             const heading = creature.pf2eAdjustment === "elite" ? "Elite" : "Weak";
             const summary = this.statblockEl.createDiv("pf2e-adjustment-summary");
             summary.createEl("strong", { text: `${heading} adjustment · level ${creature.level ?? "?"} · HP ${creature.max} · AC ${creature.ac ?? "?"}` });
-            summary.createEl("div", { text: `Recognized creature rows below include ${sign}2 to attacks, spell DCs, saves, Perception, and skills. For unmatched text, apply those changes manually; also apply ${sign}2 damage for Strikes and repeatable offensive abilities, or ${sign}4 damage for limited-use abilities.` });
+            summary.createEl("div", { text: `Recognized creature rows below include ${sign}2 to attacks, Strike damage, spell DCs, saves, Perception, and skills. For unmatched text, apply those changes manually; also apply ${sign}2 damage for repeatable offensive abilities, or ${sign}4 damage for limited-use abilities.` });
         }
 
         if (
@@ -155,7 +155,14 @@ export class CreatureView extends ItemView {
         ) {
             await this.renderEmbed(creature.getStatblockLink());
         } else if (this.plugin.canUseStatBlocks) {
-            const source = originalPf2eStatblockSource(this.plugin.getBaseCreatureFromBestiary(creature.name) ?? creature.creature);
+            const bestiary = this.plugin.getBaseCreatureFromBestiary(creature.name);
+            const stored = originalPf2eStatblockSource(creature.creature);
+            const bestiarySource = bestiary && originalPf2eStatblockSource(bestiary);
+            const completeStoredSource = this.plugin.data.rpgSystem === "pathfinder2e" && stored &&
+                Number(stored.hp) > 0 && Number.isFinite(Number(stored.ac)) &&
+                (Number(bestiarySource?.hp) <= 0 || !Number.isFinite(Number(bestiarySource?.ac)) ||
+                    (Array.isArray(stored.attacks) && !Array.isArray(bestiarySource?.attacks)));
+            const source = completeStoredSource ? stored : bestiarySource ?? stored;
             const rendered = this.plugin.data.rpgSystem === "pathfinder2e" && !(source as any).pf2eAdjustment
                 ? adjustedPf2eStatblock(source as Record<string, any>, creature.pf2eAdjustment)
                 : source;

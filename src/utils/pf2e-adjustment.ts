@@ -78,7 +78,11 @@ export function adjustedPf2eStatblock(source: Record<string, any>, adjustment: P
     });
     adjusted.attacks = mapRows(source.attacks, item => {
         if (typeof item.name !== "string" || typeof item.desc !== "string") return item;
-        if (/^\*\*(?:Melee|Ranged)\*\*/i.test(item.name)) return changeLeadingNumber(item, change);
+        if (/^\*\*(?:Melee|Ranged)\*\*/i.test(item.name)) {
+            const attack = changeLeadingNumber(item, change);
+            const desc = changeStrikeDamage(attack.desc, change);
+            return desc === attack.desc ? attack : { ...attack, desc };
+        }
         if (/\bSpells?\b|\bRituals?\b/i.test(item.name) && /^\s*DC\s+\d+\b/i.test(item.desc)) {
             return { ...item, desc: item.desc
                 .replace(/^(\s*DC\s+)(\d+)\b/i, (_match: string, label: string, dc: string) => `${label}${Number(dc) + change}`)
@@ -102,6 +106,38 @@ function parsePlainNumber(value: unknown): number | null {
 }
 
 function signed(value: number): string { return value >= 0 ? `+${value}` : String(value); }
+
+const strikeDamageType = "bludgeoning|piercing|slashing|acid|cold|electricity|fire|sonic|poison|mental|force|void|vitality|spirit|negative|positive|chaotic|evil|good|lawful|untyped|bleed|precision";
+const strikeDamageExpression = new RegExp(`\\b(\\d+d\\d+)(?:([ \\t]*)([+-])([ \\t]*)(\\d+))?([ \\t]+)(${strikeDamageType})\\b`, "gi");
+
+/** Adjust one direct damage component, preferring physical damage over riders. */
+function changeStrikeDamage(desc: string, change: number): string {
+    const marker = /__Damage__/i.exec(desc);
+    if (!marker) return desc;
+    const start = marker.index + marker[0].length;
+    const nextSection = desc.indexOf("__", start);
+    const damage = desc.slice(start, nextSection < 0 ? undefined : nextSection);
+    const matches = [...damage.matchAll(strikeDamageExpression)];
+    // Unknown text before the first damage component makes the row ambiguous.
+    if (!matches.length || damage.slice(0, matches[0].index).trim()) return desc;
+    const physical = (match: RegExpMatchArray) => /^(?:bludgeoning|piercing|slashing)$/i.test(match[7]);
+    const direct = (match: RegExpMatchArray) => !/^(?:bleed|precision)$/i.test(match[7]);
+    const chosen = matches.find(match => physical(match) && match[3])
+        ?? matches.find(physical)
+        ?? matches.find(match => direct(match) && match[3])
+        ?? matches.find(direct);
+    // Persistent bleed and precision damage are riders, not a safe base to modify.
+    if (!chosen) return desc;
+    const original = chosen[0];
+    const base = chosen[3] ? Number(`${chosen[3]}${chosen[5]}`) : 0;
+    const total = base + change;
+    const modifier = chosen[3]
+        ? `${chosen[2]}${total < 0 ? "-" : "+"}${chosen[4]}${Math.abs(total)}`
+        : ` ${total < 0 ? "-" : "+"} ${Math.abs(total)}`;
+    const replacement = `${chosen[1]}${modifier}${chosen[6]}${chosen[7]}`;
+    const offset = start + chosen.index;
+    return desc.slice(0, offset) + replacement + desc.slice(offset + original.length);
+}
 
 function mapRows(value: unknown, transform: (item: Record<string, any>) => Record<string, any>): unknown {
     return Array.isArray(value) ? value.map(item => item && typeof item === "object" ? transform(item) : item) : value;
