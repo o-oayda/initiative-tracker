@@ -18,6 +18,7 @@ import type InitiativeTracker from "../main";
 
 import App from "./ui/App.svelte";
 import type { Creature } from "../utils/creature";
+import { adjustedPf2eStatblock, originalPf2eStatblockSource } from "../utils/pf2e-adjustment";
 import { PLAYER_VIEW_VIEW } from "../utils/constants";
 import type PlayerView from "./player-view";
 
@@ -88,6 +89,7 @@ export default class TrackerView extends ItemView {
 }
 
 export class CreatureView extends ItemView {
+    viewedCreatureId?: string;
     buttonEl = this.contentEl.createDiv("creature-view-button");
     statblockEl = this.contentEl.createDiv("creature-statblock-container");
     constructor(leaf: WorkspaceLeaf, public plugin: InitiativeTracker) {
@@ -130,11 +132,20 @@ export class CreatureView extends ItemView {
     }
     async render(creature?: Creature) {
         this.statblockEl.empty();
+        this.viewedCreatureId = creature?.id;
         if (!creature) {
             this.statblockEl.createEl("em", {
                 text: "Select a creature to view it here."
             });
             return;
+        }
+
+        if (this.plugin.data.rpgSystem === "pathfinder2e" && creature.pf2eAdjustment !== "normal") {
+            const sign = creature.pf2eAdjustment === "elite" ? "+" : "−";
+            const heading = creature.pf2eAdjustment === "elite" ? "Elite" : "Weak";
+            const summary = this.statblockEl.createDiv("pf2e-adjustment-summary");
+            summary.createEl("strong", { text: `${heading} adjustment · level ${creature.level ?? "?"} · HP ${creature.max} · AC ${creature.ac ?? "?"}` });
+            summary.createEl("div", { text: `Recognized creature rows below include ${sign}2 to attacks, spell DCs, saves, Perception, and skills. For unmatched text, apply those changes manually; also apply ${sign}2 damage for Strikes and repeatable offensive abilities, or ${sign}4 damage for limited-use abilities.` });
         }
 
         if (
@@ -144,8 +155,12 @@ export class CreatureView extends ItemView {
         ) {
             await this.renderEmbed(creature.getStatblockLink());
         } else if (this.plugin.canUseStatBlocks) {
+            const source = originalPf2eStatblockSource(this.plugin.getBaseCreatureFromBestiary(creature.name) ?? creature.creature);
+            const rendered = this.plugin.data.rpgSystem === "pathfinder2e" && !(source as any).pf2eAdjustment
+                ? adjustedPf2eStatblock(source as Record<string, any>, creature.pf2eAdjustment)
+                : source;
             const statblock = window.FantasyStatblocks.render(
-                creature.creature,
+                rendered,
                 this.statblockEl,
                 creature.display
             );

@@ -1,3 +1,5 @@
+import type { Pf2eAdjustment } from "src/utils/pf2e-adjustment";
+
 export interface CreatureState extends HomebrewCreature {
     status: string[];
     /** Concentrating abilities (linked), serialized minimally */
@@ -34,6 +36,11 @@ export interface SRDMonster {
     [key: string]: any;
 }
 export interface HomebrewCreature {
+    pf2eAdjustment?: Pf2eAdjustment;
+    pf2eBaseLevel?: number;
+    pf2eBaseHP?: number;
+    pf2eBaseAC?: number | string;
+    pf2eBaseModifier?: number;
     name?: string;
     display?: string;
     hp?: number;

@@ -14,6 +14,13 @@
 
     export let rollHP: boolean = plugin.data.rollHP;
 
+    const creatureLabel = (creature: Creature, count: string | number) => {
+        const plural = Number(count) === 1 ? "" : "s";
+        const adjustment = creature.pf2eAdjustment === "weak" ? " (W)" : creature.pf2eAdjustment === "elite" ? " (E)" : "";
+        const display = `${creature.display ?? creature.name}${plural}${adjustment}`;
+        return creature.display && creature.display !== creature.name ? `${display} (${creature.name})` : display;
+    };
+
     const creatureMap: Map<Creature, number> = new Map();
     const rollerMap: Map<Creature, StackRoller> = new Map();
 
@@ -132,13 +139,7 @@
                     <span
                         class="creature-name"
                         on:click={() => plugin.openCombatant(creature)}
-                        >{#if creature.display && creature.display != creature.name}{creature.display}{count ==
-                            1
-                                ? ""
-                                : "s"} ({creature.name}){:else}{creature.name}{count ==
-                            1
-                                ? ""
-                                : "s"}{/if}</span
+                        >{creatureLabel(creature, count)}</span
                     ></span
                 >
             {/each}

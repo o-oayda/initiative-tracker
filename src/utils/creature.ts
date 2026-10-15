@@ -2,9 +2,11 @@ import type { Condition } from "src/types/creatures";
 import type { HomebrewCreature } from "src/types/creatures";
 import type { SRDMonster } from "src/types/creatures";
 import type { CreatureState } from "src/types/creatures";
-import { Conditions } from ".";
+import { Conditions } from "./conditions";
 import { DEFAULT_UNDEFINED } from "./constants";
 import type InitiativeTracker from "src/main";
+import { pf2eAdjustedLevel, pf2eCreatureLevel, pf2eHpChange } from "./pf2e-adjustment";
+import type { Pf2eAdjustment } from "./pf2e-adjustment";
 
 export function getId() {
     return "ID_xyxyxyxyxyxy".replace(/[xy]/g, function (c) {
@@ -15,6 +17,11 @@ export function getId() {
 }
 
 export class Creature {
+    pf2eAdjustment: Pf2eAdjustment = "normal";
+    pf2eBaseLevel?: number;
+    pf2eBaseHP?: number;
+    pf2eBaseAC?: number | string;
+    pf2eBaseModifier?: number;
     active: boolean;
     name: string;
     modifier: number | number[];
@@ -98,6 +105,11 @@ export class Creature {
         this.max = this.current_max = creature.hp ? Number(creature.hp) : 0;
         this.note = creature.note;
         this.level = creature.level;
+        this.pf2eAdjustment = creature.pf2eAdjustment ?? "normal";
+        this.pf2eBaseLevel = creature.pf2eBaseLevel;
+        this.pf2eBaseHP = creature.pf2eBaseHP;
+        this.pf2eBaseAC = creature.pf2eBaseAC;
+        this.pf2eBaseModifier = creature.pf2eBaseModifier;
         this.player = creature.player;
 
         this.rollHP = creature.rollHP;
@@ -287,6 +299,9 @@ export class Creature {
 
     getName() {
         let name = [this.display ?? this.name];
+        if (this.pf2eAdjustment !== "normal") {
+            name[0] += this.pf2eAdjustment === "weak" ? " (W)" : " (E)";
+        }
         /* if (this.display) {
             return this.display;
         } */
@@ -337,6 +352,43 @@ export class Creature {
         return clone;
     }
 
+    setPf2eAdjustment(adjustment: Pf2eAdjustment) {
+        if (this.pf2eBaseLevel == null) {
+            this.pf2eBaseLevel = pf2eCreatureLevel(this.level);
+        }
+        if (this.pf2eBaseLevel == null) {
+            this.pf2eBaseLevel = pf2eCreatureLevel((this.creature as any)?.level);
+        }
+        if (this.pf2eBaseHP == null) this.pf2eBaseHP = this.max;
+        if (this.pf2eBaseAC == null) this.pf2eBaseAC = this.ac;
+        if (this.pf2eBaseModifier == null && typeof this.modifier === "number") this.pf2eBaseModifier = this.modifier;
+        const previousMax = this.max;
+        const previousAC = this.ac;
+        this.pf2eAdjustment = adjustment;
+        if (this.pf2eBaseLevel != null) {
+            this.level = pf2eAdjustedLevel(this.pf2eBaseLevel, adjustment);
+        }
+        const newMax = Math.max(0, this.pf2eBaseHP + (this.pf2eBaseLevel == null ? 0 : pf2eHpChange(this.pf2eBaseLevel, adjustment)));
+        const maxDifference = newMax - previousMax;
+        this.max = newMax;
+        this.current_max = Math.max(0, this.current_max + maxDifference);
+        this.hp = Math.min(this.current_max, Math.max(0, this.hp + maxDifference));
+        const baseAC = typeof this.pf2eBaseAC === "number" ? this.pf2eBaseAC
+            : typeof this.pf2eBaseAC === "string" && /^\d+$/.test(this.pf2eBaseAC.trim())
+                ? Number(this.pf2eBaseAC) : null;
+        if (baseAC != null) {
+            this.ac = baseAC + (adjustment === "elite" ? 2 : adjustment === "weak" ? -2 : 0);
+            if (typeof this.current_ac === "number" && typeof previousAC === "number") {
+                this.current_ac += this.ac - previousAC;
+            } else if (this.current_ac === previousAC) {
+                this.current_ac = this.ac;
+            }
+        }
+        if (this.pf2eBaseModifier != null) {
+            this.modifier = this.pf2eBaseModifier + (adjustment === "elite" ? 2 : adjustment === "weak" ? -2 : 0);
+        }
+    }
+
     static from(creature: HomebrewCreature | SRDMonster) {
         const modifier =
             "modifier" in creature
@@ -380,6 +432,11 @@ export class Creature {
     toJSON(): CreatureState {
         return {
             name: this.name,
+            pf2eAdjustment: this.pf2eAdjustment,
+            pf2eBaseLevel: this.pf2eBaseLevel,
+            pf2eBaseHP: this.pf2eBaseHP,
+            pf2eBaseAC: this.pf2eBaseAC,
+            pf2eBaseModifier: this.pf2eBaseModifier,
             display: this.display,
             initiative: this.initiative,
             static: this.static,
@@ -427,6 +484,21 @@ export class Creature {
         creature.current_max = state.currentMaxHP;
         creature.hp = state.currentHP;
         creature.current_ac = state.currentAC;
+        // Repair encounters saved before text-form PF2e levels were recognized.
+        if (plugin.data?.rpgSystem === "pathfinder2e" &&
+            state.pf2eAdjustment && state.pf2eAdjustment !== "normal" &&
+            state.pf2eBaseLevel == null && pf2eCreatureLevel(state.level) != null) {
+            creature.setPf2eAdjustment(state.pf2eAdjustment);
+        }
+        // Earlier saves kept the original Perception initiative modifier even
+        // when an adjustment was active. Migrate it without changing the roll.
+        if (plugin.data?.rpgSystem === "pathfinder2e" &&
+            state.pf2eAdjustment && state.pf2eAdjustment !== "normal" &&
+            state.pf2eBaseModifier == null && creature.pf2eBaseModifier == null &&
+            typeof creature.modifier === "number") {
+            creature.pf2eBaseModifier = creature.modifier;
+            creature.modifier += state.pf2eAdjustment === "elite" ? 2 : -2;
+        }
         let statuses: Condition[] = [];
         for (const status of state.status) {
             const existing = Conditions.find(({ name }) => status == name);

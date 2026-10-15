@@ -1,6 +1,7 @@
 import { MarkdownRenderChild, Notice, parseYaml } from "obsidian";
 import type InitiativeTracker from "../main";
 import { Creature } from "../utils/creature";
+import { parsePf2eAdjustment } from "../utils/pf2e-adjustment";
 
 import EncounterUI from "./ui/Encounter.svelte";
 import EncounterTable from "./ui/EncounterTable.svelte";
@@ -36,6 +37,7 @@ export const equivalent = (
 ) => {
     return (
         creature.name == existing.name &&
+        (creature as Creature).pf2eAdjustment == (existing as Creature).pf2eAdjustment &&
         creature.display == existing.display &&
         creature.ac == existing.ac &&
         equivalentModifiers(creature.modifier, existing.modifier) &&
@@ -179,6 +181,7 @@ export class EncounterParser {
 
                 const stats = {
                     name: creature.name,
+                    pf2eAdjustment: creature.pf2eAdjustment,
                     display: creature.display,
                     ac: creature.ac,
                     hp: creature.hp,
@@ -310,18 +313,30 @@ export class EncounterParser {
         }
         if (!name || typeof name != "string") return {};
         let existing = this.plugin.getCreatureFromBestiary(name);
+        const parsedAdjustment = this.plugin.data.rpgSystem === "pathfinder2e" && !existing
+            ? parsePf2eAdjustment(name)
+            : null;
+        if (parsedAdjustment) {
+            name = parsedAdjustment.name;
+            existing = this.plugin.getCreatureFromBestiary(name);
+        }
         let creature = existing
             ? Creature.from(existing)
             : new Creature({ name });
 
         creature.display = display;
-        creature.hp = hp ?? creature.hp;
-        creature.ac = ac ?? creature.ac;
+        if (hp != null) {
+            creature.max = creature.current_max = creature.hp = hp;
+        }
+        if (ac != null) {
+            creature.ac = creature.current_ac = ac;
+        }
         creature.modifier = mod ?? creature.modifier;
         creature.xp = xp ?? creature.xp;
         creature.hidden = hidden ?? creature.hidden;
         creature.friendly = friendly ?? creature.friendly;
         creature.rollHP = rollHP ?? globalRollHP ?? creature.rollHP;
+        if (parsedAdjustment) creature.setPf2eAdjustment(parsedAdjustment.adjustment);
 
         return { creature, number };
     }

@@ -14,6 +14,7 @@
     import { createEventDispatcher, getContext } from "svelte";
     import type InitiativeTracker from "src/main";
     import { tracker } from "src/tracker/stores/tracker";
+    import type { Pf2eAdjustment } from "src/utils/pf2e-adjustment";
     import SpellCastingModal from "../spells/modal";
     import PlayerResourceModal from "../player/resource-modal";
 
@@ -22,6 +23,28 @@
     export let creature: Creature;
 
     const plugin = getContext<InitiativeTracker>("plugin");
+
+    const setAdjustment = (adjustment: Pf2eAdjustment) => {
+        creature.setPf2eAdjustment(adjustment);
+        tracker.updateAndSave();
+        if (plugin.combatant?.viewedCreatureId === creature.id) {
+            void plugin.combatant.render(creature);
+        }
+    };
+
+    export const openAdjustmentMenu = (evt: MouseEvent) => {
+        evt.stopPropagation();
+        openMenu?.hide?.();
+        const menu = new Menu();
+        openMenu = menu;
+        menu.onHide(() => { if (openMenu === menu) openMenu = null; });
+        for (const adjustment of ["normal", "weak", "elite"] as Pf2eAdjustment[]) {
+            menu.addItem(item => item
+                .setTitle(`${adjustment[0].toUpperCase()}${adjustment.slice(1)}${creature.pf2eAdjustment === adjustment ? " ✓" : ""}`)
+                .onClick(() => setAdjustment(adjustment)));
+        }
+        menu.showAtPosition(evt);
+    };
 
     // Ensure only one context menu is open at a time per tracker view
     let openMenu: Menu | null = null;
@@ -47,6 +70,13 @@
                 // Clear reference when this menu is dismissed
                 if (openMenu === menu) openMenu = null;
             });
+            if (plugin.data.rpgSystem === "pathfinder2e" && !creature.player) {
+                for (const adjustment of ["normal", "weak", "elite"] as Pf2eAdjustment[]) {
+                    menu.addItem(item => item
+                        .setTitle(`PF2e: ${adjustment[0].toUpperCase()}${adjustment.slice(1)}${creature.pf2eAdjustment === adjustment ? " ✓" : ""}`)
+                        .onClick(() => setAdjustment(adjustment)));
+                }
+            }
             menu.addItem((item) => {
                 item.setIcon(HP)
                     .setTitle("Set Health/Status")

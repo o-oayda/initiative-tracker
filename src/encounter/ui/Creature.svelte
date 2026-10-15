@@ -13,6 +13,13 @@
     export let xp: number;
     export let shouldShowRoll: boolean;
 
+    const creatureLabel = (creature: Creature, count: string | number) => {
+        const plural = Number(count) === 1 ? "" : "s";
+        const adjustment = creature.pf2eAdjustment === "weak" ? " (W)" : creature.pf2eAdjustment === "elite" ? " (E)" : "";
+        const display = `${creature.display ?? creature.name}${plural}${adjustment}`;
+        return creature.display && creature.display !== creature.name ? `${display} (${creature.name})` : display;
+    };
+
     const rollEl = (node: HTMLElement) => {
         setIcon(node, RANDOM_HP);
     };
@@ -33,11 +40,7 @@
         <span class="has-icon" use:hidden />
     {/if}
     <span class="creature-name" on:click={() => plugin.openCombatant(creature)}>
-        {#if creature.display && creature.display != creature.name}
-            {creature.display}{count == 1 ? "" : "s"} ({creature.name})
-        {:else}
-            {creature.name}{count == 1 ? "" : "s"}
-        {/if}
+        {creatureLabel(creature, count)}
         {#if shouldShowRoll && creature.hit_dice?.length}
             <span class="has-icon" aria-label="Rolling for HP" use:rollEl />
         {/if}

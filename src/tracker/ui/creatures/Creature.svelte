@@ -7,11 +7,15 @@
     import { Platform, setIcon } from "obsidian";
     import { tracker } from "../../stores/tracker";
     import { createEventDispatcher } from "svelte";
+    import { getContext } from "svelte";
+    import type InitiativeTracker from "src/main";
 
     const dispatch = createEventDispatcher();
     const { updateTarget } = tracker;
 
     export let creature: Creature;
+    const plugin = getContext<InitiativeTracker>("plugin");
+    let creatureControls: CreatureControls;
     $: statuses = creature.status;
 
     const name = () => creature.getName();
@@ -86,6 +90,9 @@
             <strong class="name player">{creature.name}</strong>
         {:else}
             <span class="name">{name()}</span>
+            {#if plugin.data.rpgSystem === "pathfinder2e"}
+                <button class="pf2e-adjustment" title="Change PF2e creature adjustment" on:click|stopPropagation={(evt) => creatureControls.openAdjustmentMenu(evt)}>{creature.pf2eAdjustment === "weak" ? "W" : creature.pf2eAdjustment === "elite" ? "E" : "–"}</button>
+            {/if}
         {/if}
     </div>
     <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -158,6 +165,7 @@
 
 <td class="controls-container">
     <CreatureControls
+        bind:this={creatureControls}
         on:click={(e) => e.stopPropagation()}
         on:tag
         on:edit
@@ -167,6 +175,12 @@
 </td>
 
 <style scoped>
+    .pf2e-adjustment {
+        font-size: 0.7rem;
+        padding: 0 0.25rem;
+        line-height: 1.3;
+        cursor: pointer;
+    }
     .name-holder {
         display: flex;
         align-items: center;

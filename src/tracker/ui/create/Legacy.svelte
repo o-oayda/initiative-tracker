@@ -11,6 +11,7 @@
     import { DICE } from "src/utils";
     import { SRDMonsterSuggestionModal } from "src/utils/suggester";
     import { Creature } from "src/utils/creature";
+    import type { Pf2eAdjustment } from "src/utils/pf2e-adjustment";
     import type InitiativeTracker from "src/main";
 
     import { tracker } from "src/tracker/stores/tracker";
@@ -18,6 +19,10 @@
     const dispatch = createEventDispatcher();
 
     export let creature: Creature = new Creature({});
+    const changePf2eAdjustment = (evt: Event) => {
+        creature.setPf2eAdjustment((evt.currentTarget as HTMLSelectElement).value as Pf2eAdjustment);
+        creature = creature;
+    };
     export let amount = 1;
     export let plugin: InitiativeTracker;
 
@@ -94,6 +99,16 @@
 
 <div class="initiative-tracker-editor">
     <div class="create-new">
+        {#if plugin.data.rpgSystem === "pathfinder2e"}
+            <div>
+                <label for="pf2e-adjustment-legacy">PF2e adjustment</label>
+                <select id="pf2e-adjustment-legacy" value={creature.pf2eAdjustment} on:change={changePf2eAdjustment}>
+                    <option value="normal">Normal</option>
+                    <option value="weak">Weak</option>
+                    <option value="elite">Elite</option>
+                </select>
+            </div>
+        {/if}
         <div>
             <label for="add-name">Creature</label>
             <input

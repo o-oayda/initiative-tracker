@@ -43,6 +43,7 @@ Check out the **[plugin documentation](https://plugins.javalent.com/it)** for mo
 Additional fork-specific docs:
 
 - Per‑day resources (spells, powers) usage tracking: see `docs/per-day-resources.md`.
+- Pathfinder 2e weak and elite creatures: see `docs/pf2e-adjustments.md`.
 
 ## Support
 

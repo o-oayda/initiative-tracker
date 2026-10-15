@@ -1,4 +1,5 @@
 import { Creature, getId } from "src/utils/creature";
+import { pf2eHpChange } from "src/utils/pf2e-adjustment";
 import type InitiativeTracker from "../../main";
 import {
     derived,
@@ -1014,6 +1015,11 @@ function setCreatureHP(
         let roller = plugin.getRoller(creature.hit_dice);
         if (!roller) continue;
         creature.hp = creature.max = creature.current_max = roller.rollSync();
+        if (creature.pf2eAdjustment !== "normal" && creature.pf2eBaseLevel != null) {
+            const hpChange = pf2eHpChange(creature.pf2eBaseLevel, creature.pf2eAdjustment);
+            creature.pf2eBaseHP = creature.max;
+            creature.hp = creature.max = creature.current_max = Math.max(0, creature.max + hpChange);
+        }
     }
 }
 

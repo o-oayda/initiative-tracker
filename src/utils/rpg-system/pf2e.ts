@@ -75,15 +75,13 @@ export class Pathfinder2eRpgSystem extends RpgSystem {
         creature: GenericCreature,
         playerLevels?: number[]
     ): number {
-        const lvl = getFromCreatureOrBestiary(
+        const lvlValue = getFromCreatureOrBestiary(
             this.plugin,
             creature,
             (c) => c?.level
-        )
-            ?.toString()
-            .split(" ")
-            .slice(-1);
-        if (lvl == null || lvl == undefined) return 0;
+        );
+        const lvl = Number(lvlValue?.toString().split(" ").slice(-1)[0]);
+        if (!Number.isFinite(lvl)) return 0;
         const partyLvl = Math.round(
             playerLevels?.length ?? 0 > 0
                 ? playerLevels.reduce((a, b) => a + b) / playerLevels.length
