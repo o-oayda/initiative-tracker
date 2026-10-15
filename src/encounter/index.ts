@@ -1,7 +1,7 @@
 import { MarkdownRenderChild, Notice, parseYaml } from "obsidian";
 import type InitiativeTracker from "../main";
 import { Creature } from "../utils/creature";
-import { parsePf2eAdjustment } from "../utils/pf2e-adjustment";
+import { parsePf2eAdjustment, pf2eCreatureLevel } from "../utils/pf2e-adjustment";
 
 import EncounterUI from "./ui/Encounter.svelte";
 import EncounterTable from "./ui/EncounterTable.svelte";
@@ -176,7 +176,7 @@ export class EncounterParser {
         if (rawMonsters && Array.isArray(rawMonsters)) {
             for (const raw of rawMonsters) {
                 const { creature, number = 1 } =
-                    this.parseRawCreature(raw, rollHP) ?? {};
+                    (await this.parseRawCreature(raw, rollHP)) ?? {};
                 if (!creature) continue;
 
                 const stats = {
@@ -212,14 +212,14 @@ export class EncounterParser {
         }
         return creatureMap;
     }
-    parseRawCreature(raw: RawCreature, globalRollHP: boolean) {
+    async parseRawCreature(raw: RawCreature, globalRollHP: boolean) {
         if (!raw) return {};
         let monster: string | string[] | Record<string, any>,
             number: string | number = 1;
 
         if (typeof raw == "string") {
             const match = raw.match(/(\d+)?:?\s?(.+)/) ?? [];
-            number = isNaN(Number(match[1] ?? null))
+            number = match[1] == null || isNaN(Number(match[1]))
                 ? number
                 : Number(match[1]);
             monster = match[2];
@@ -320,9 +320,13 @@ export class EncounterParser {
             name = parsedAdjustment.name;
             existing = this.plugin.getCreatureFromBestiary(name);
         }
-        let creature = existing
-            ? Creature.from(existing)
-            : new Creature({ name });
+        // Fantasy Statblocks can expose an incomplete bestiary entry for a note
+        // whose actual PF2e stats live in an inline `statblock` code fence.
+        // Read that fence only when the bestiary entry lacks core tracker stats.
+        const source = await this.readPf2eInlineStatblock(name, existing);
+        let creature = source
+            ? Creature.from({ ...(existing?.creature ?? existing ?? {}), ...source })
+            : existing ? Creature.from(existing) : new Creature({ name });
 
         creature.display = display;
         if (hp != null) {
@@ -339,6 +343,25 @@ export class EncounterParser {
         if (parsedAdjustment) creature.setPf2eAdjustment(parsedAdjustment.adjustment);
 
         return { creature, number };
+    }
+
+    private async readPf2eInlineStatblock(name: string, existing?: Creature) {
+        if (this.plugin.data.rpgSystem !== "pathfinder2e") return null;
+        if (existing && existing.max > 0 && existing.ac != null) return null;
+        const file = this.plugin.app.metadataCache.getFirstLinkpathDest(name, "");
+        if (!file) return null;
+        try {
+            const content = await this.plugin.app.vault.cachedRead(file);
+            const match = content.match(/^```[ \t]*statblock[ \t]*\r?\n([\s\S]*?)^```[ \t]*$/m);
+            if (!match) return null;
+            const source = parseYaml(match[1]);
+            if (!source || typeof source !== "object" || source.name !== name) return null;
+            if (pf2eCreatureLevel(source.level) == null) return null;
+            if (!(Number(source.hp) > 0) || !Number.isFinite(Number(source.ac))) return null;
+            return source;
+        } catch {
+            return null;
+        }
     }
 }
 
