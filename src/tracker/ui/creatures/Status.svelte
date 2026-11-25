@@ -3,10 +3,13 @@
     import type { Condition } from "src/types/creatures";
     import { createEventDispatcher, getContext } from "svelte";
     import type InitiativeTracker from "src/main";
+    import { findConditionNote, previewConditionNote } from "src/utils/condition-link";
     
     const dispatch = createEventDispatcher();
 
     export let status: Condition;
+    export let concentration = false;
+    $: link = status.link ?? findConditionNote(plugin.app, status.name);
     if (isNaN(status.amount) || status.amount < 0) {
         status.amount = status.startingAmount;
     }
@@ -19,11 +22,7 @@
     const plus = (node: HTMLElement) => {
         setIcon(node, "plus");
     };
-    const hoverLink = (evt: MouseEvent, href: string) => {
-        try {
-            plugin.app.workspace.trigger("link-hover", {}, evt.currentTarget as HTMLElement, href, "/");
-        } catch (e) {}
-    };
+
 
     const plugin = getContext<InitiativeTracker>("plugin");
 </script>
@@ -31,23 +30,23 @@
 <!-- svelte-ignore a11y-unknown-aria-attribute -->
 <div
     class="tag"
-    class:concentration={!!status.link}
+    class:concentration={concentration}
     class:spell={status.kind?.toLowerCase?.() === 'spell'}
     class:power={status.kind?.toLowerCase?.() === 'power'}
-    class:other={!!status.link && status.kind?.toLowerCase?.() !== 'spell' && status.kind?.toLowerCase?.() !== 'power'}
+    class:other={concentration && status.kind?.toLowerCase?.() !== 'spell' && status.kind?.toLowerCase?.() !== 'power'}
 >
     <span
         aria-label-classes="initiative-tracker-condition-tooltip"
-        aria-label={status.description?.length ? status.description : null}
+        aria-label={!link && status.description?.length ? status.description : null}
     >
-        {#if status.link}
+        {#if link}
             <a
                 class="internal-link"
-                href={status.link}
-                data-href={status.link}
-                on:click|preventDefault={() => plugin.app.workspace.openLinkText(status.link, "/", false)}
-                on:mouseenter={(evt) => hoverLink(evt, status.link)}
-            >{status.linkText ?? status.link}</a>
+                href={link}
+                data-href={link}
+                on:click|preventDefault|stopPropagation={() => plugin.app.workspace.openLinkText(link, "/", false)}
+                on:mouseover={(evt) => previewConditionNote(plugin.app, evt, link)}
+            >{status.linkText ?? (concentration ? link : status.name)}</a>
         {:else}
             {status.name}
         {/if}
@@ -60,10 +59,14 @@
                 on:click={() => {
                     status.amount--;
                     if (status.amount <= 0) dispatch("remove");
+                    else dispatch("amountChange");
                 }}
             />
             <span>{status.amount}</span>
-            <div class="icon" use:plus on:click={() => status.amount++} />
+            <div class="icon" use:plus on:click={() => {
+                status.amount++;
+                dispatch("amountChange");
+            }} />
         </div>
     {/if}
     <div use:deleteIcon on:click={() => dispatch("remove")} />

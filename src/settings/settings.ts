@@ -783,6 +783,63 @@ export default class InitiativeTrackerSettings extends PluginSettingTab {
         const summary = additionalContainer.createEl("summary");
         new Setting(summary).setHeading().setName("Statuses");
 
+        const app = this.plugin.app;
+        new Setting(additionalContainer)
+            .setName("Conditions folder")
+            .setDesc("Load Markdown notes from this folder and its subfolders. A note replaces an existing status with the same name.")
+            .addText((text) => {
+                const saveFolder = async (value: string) => {
+                    this.plugin.data.conditionsFolder = value.trim();
+                    await this.plugin.saveSettings();
+                };
+                text.setValue(this.plugin.data.conditionsFolder ?? "").onChange(saveFolder);
+                const folders = app.vault.getAllLoadedFiles().filter((file): file is TFolder => file instanceof TFolder);
+                new FolderInputSuggest(app, text, folders).onSelect(async ({ item }) => {
+                    text.setValue(item.path);
+                    await saveFolder(item.path);
+                });
+            })
+            .addButton((button) => button.setButtonText("Load conditions").onClick(async () => {
+                const path = this.plugin.data.conditionsFolder?.trim();
+                const folder = path && app.vault.getAbstractFileByPath(normalizePath(path));
+                if (!(folder instanceof TFolder)) {
+                    new Notice("Choose a valid conditions folder.");
+                    return;
+                }
+                const prefix = folder.isRoot() ? "" : `${folder.path}/`;
+                const files = app.vault.getMarkdownFiles().filter(file => file.path.startsWith(prefix));
+                const key = (name: string) => name.trim().replace(/[-\s]+/g, " ").toLowerCase();
+                const statuses = new Map(this.plugin.data.statuses.map(status => [key(status.name), status]));
+                button.setDisabled(true);
+                try {
+                    for (const file of files) {
+                        const name = file.basename.replace(/-/g, " ");
+                        const pattern = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "[-\\s]+");
+                        const content = await app.vault.cachedRead(file);
+                        const hasAmount = new RegExp(`\\b${pattern}(?:\\s+condition)?\\s+always\\s+includes\\s+a\\s+value\\b`, "i")
+                            .test(content.replace(/[*_]/g, ""));
+                        const existing = statuses.get(key(name));
+                        statuses.set(key(name), {
+                            id: existing?.id ?? getId(),
+                            name: existing?.name ?? name,
+                            description: "",
+                            link: file.path,
+                            resetOnRound: existing?.resetOnRound,
+                            ...(hasAmount ? { hasAmount: true, startingAmount: 1, amount: 1 } : {})
+                        });
+                    }
+                    this.plugin.data.statuses = [...statuses.values()];
+                    await this.plugin.saveSettings();
+                    new Notice(`Loaded ${files.length} condition notes.`);
+                    this._displayStatuses(additionalContainer);
+                } catch (error) {
+                    console.error("Initiative Tracker: could not load conditions", error);
+                    new Notice("Could not load conditions. See the console for details.");
+                } finally {
+                    button.setDisabled(false);
+                }
+            }));
+
         new Setting(additionalContainer)
             .setName("Unconscious Status")
             .setDesc(
@@ -843,8 +900,8 @@ export default class InitiativeTrackerSettings extends PluginSettingTab {
                         this.plugin.data.statuses = Array.from(
                             new Map(
                                 [
-                                    ...this.plugin.data.statuses,
-                                    ...Conditions
+                                    ...Conditions,
+                                    ...this.plugin.data.statuses
                                 ].map((c) => [c.name, c])
                             ).values()
                         );

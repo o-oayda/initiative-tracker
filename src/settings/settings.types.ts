@@ -9,6 +9,7 @@ export interface InitiativeTrackerData {
     displayDifficulty: boolean;
     preferStatblockLink: boolean;
     statuses: Condition[];
+    conditionsFolder: string;
     unconsciousId: string;
     openState: {
         battle: boolean;

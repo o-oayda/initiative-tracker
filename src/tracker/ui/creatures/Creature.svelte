@@ -101,6 +101,7 @@
             {#each [...statuses] as status}
                 <Status
                     {status}
+                    on:amountChange={() => tracker.updateCreatures({ creature, change: {} })}
                     on:remove={() => {
                         tracker.updateCreatures({
                             creature,
@@ -114,6 +115,7 @@
             {#each [...creature.concentration] as status}
                 <Status
                     {status}
+                    concentration
                     on:remove={() => {
                         tracker.updateCreatures({ creature, change: { remove_concentration: [status] } });
                     }}

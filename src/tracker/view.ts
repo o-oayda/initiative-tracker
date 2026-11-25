@@ -131,6 +131,19 @@ export class CreatureView extends ItemView {
         this.app.workspace.trigger("initiative-tracker:stop-viewing");
     }
     async render(creature?: Creature) {
+        try {
+            await this.renderStatblock(creature);
+        } catch (error) {
+            if (this.viewedCreatureId !== creature?.id) return;
+            this.statblockEl.empty();
+            this.statblockEl.createEl("em", {
+                text: `Could not render the statblock for ${creature?.name ?? "this creature"}.`
+            });
+            console.error("Initiative Tracker: statblock rendering failed", error);
+        }
+    }
+
+    private async renderStatblock(creature?: Creature) {
         this.statblockEl.empty();
         this.viewedCreatureId = creature?.id;
         if (!creature) {
@@ -160,7 +173,8 @@ export class CreatureView extends ItemView {
             const bestiarySource = bestiary && originalPf2eStatblockSource(bestiary);
             const completeStoredSource = this.plugin.data.rpgSystem === "pathfinder2e" && stored &&
                 Number(stored.hp) > 0 && Number.isFinite(Number(stored.ac)) &&
-                (Number(bestiarySource?.hp) <= 0 || !Number.isFinite(Number(bestiarySource?.ac)) ||
+                (!(Number(bestiarySource?.hp) > 0) || bestiarySource?.ac == null ||
+                    !Number.isFinite(Number(bestiarySource.ac)) ||
                     (Array.isArray(stored.attacks) && !Array.isArray(bestiarySource?.attacks)));
             const source = completeStoredSource ? stored : bestiarySource ?? stored;
             const rendered = this.plugin.data.rpgSystem === "pathfinder2e" && !(source as any).pf2eAdjustment

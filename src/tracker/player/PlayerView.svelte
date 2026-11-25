@@ -5,6 +5,7 @@
 
     import { AC, FRIENDLY, HP, INITIATIVE, RESTART } from "src/utils";
     import type { Creature } from "src/utils/creature";
+    import { findConditionNote, previewConditionNote } from "src/utils/condition-link";
     import { createEventDispatcher, onDestroy, setContext } from "svelte";
     import type InitiativeTracker from "src/main";
 
@@ -107,17 +108,7 @@
         resetTimer();
     });
 
-    const hoverLink = (evt: MouseEvent, href: string) => {
-        try {
-            plugin.app.workspace.trigger(
-                "link-hover",
-                {},
-                evt.currentTarget as HTMLElement,
-                href,
-                "/"
-            );
-        } catch (e) {}
-    };
+
 
     const hpIcon = (node: HTMLElement) => {
         setIcon(node, HP);
@@ -238,8 +229,21 @@
                     </td>
                     <td class="center">
                         <div class="statuses-list">
-                            {#each [...creature.status].filter((s) => !s.link) as status}
-                                <div class="status-line">{status.name}</div>
+                            {#each [...creature.status] as status}
+                                {@const link = status.link ?? findConditionNote(plugin.app, status.name)}
+                                <div class="status-line">
+                                    {#if link}
+                                        <a
+                                            class="internal-link"
+                                            href={link}
+                                            data-href={link}
+                                            on:click|preventDefault|stopPropagation={() => plugin.app.workspace.openLinkText(link, "/", false)}
+                                            on:mouseover={(evt) => previewConditionNote(plugin.app, evt, link)}
+                                        >{status.name}</a>
+                                    {:else}
+                                        {status.name}
+                                    {/if}{#if status.hasAmount}{" "}{Number.isFinite(status.amount) && status.amount >= 0 ? status.amount : status.startingAmount}{/if}
+                                </div>
                             {/each}
                         </div>
                     </td>
@@ -262,7 +266,7 @@
                                         href={status.link}
                                         data-href={status.link}
                                         on:click|preventDefault={() => plugin.app.workspace.openLinkText(status.link, "/", false)}
-                                        on:mouseenter={(evt) => hoverLink(evt, status.link)}
+                                        on:mouseover={(evt) => previewConditionNote(plugin.app, evt, status.link)}
                                     >{status.linkText ?? status.link}</a>
                                 </div>
                             {/each}

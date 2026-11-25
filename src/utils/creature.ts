@@ -74,7 +74,7 @@ export class Creature {
     }
     addCondition(condition: Condition) {
         if (![...this.status].find(cond => cond.name === condition.name && cond.amount === condition.amount)) {
-            this.status.add(condition);
+            this.status.add({ ...condition });
         }
     }
     removeCondition(condition: Condition) {
@@ -501,9 +501,10 @@ export class Creature {
         }
         let statuses: Condition[] = [];
         for (const status of state.status) {
-            const existing = Conditions.find(({ name }) => status == name);
+            const existing = plugin.data?.statuses?.find(({ name }) => status == name)
+                ?? Conditions.find(({ name }) => status == name);
             if (existing) {
-                statuses.push(existing);
+                statuses.push({ ...existing });
             } else {
                 statuses.push({
                     name: status,

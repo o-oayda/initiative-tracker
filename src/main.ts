@@ -1,3 +1,4 @@
+import { CONDITION_HOVER_SOURCE } from "./utils/condition-link";
 import {
     type FrontMatterCache,
     Notice,
@@ -176,9 +177,8 @@ export default class InitiativeTracker extends Plugin {
         const leaves = this.app.workspace.getLeavesOfType(
             CREATURE_TRACKER_VIEW
         );
-        const leaf = leaves?.length ? leaves[0] : null;
-        if (leaf && leaf.view && leaf.view instanceof CreatureView)
-            return leaf.view;
+        const leaf = leaves.find(({ view }) => view instanceof CreatureView);
+        return leaf?.view as CreatureView | undefined;
     }
 
     get defaultParty() {
@@ -244,6 +244,10 @@ export default class InitiativeTracker extends Plugin {
 
     async onload() {
         registerIcons();
+        this.registerHoverLinkSource(CONDITION_HOVER_SOURCE, {
+            display: "Initiative Tracker",
+            defaultMod: false
+        });
 
         await this.loadSettings();
 
@@ -738,17 +742,24 @@ export default class InitiativeTracker extends Plugin {
         tracker.setData(this.data);
     }
     async openCombatant(creature: Creature) {
-        if (!this.canUseStatBlocks) return;
-        const view = this.combatant;
-        if (!view) {
-            const leaf = this.app.workspace.getRightLeaf(true);
-            await leaf.setViewState({
-                type: CREATURE_TRACKER_VIEW
-            });
+        if (!this.canUseStatBlocks && !creature["statblock-link"]) return;
+        const workspace = this.app.workspace;
+        const existing = this.combatant?.leaf ??
+            workspace.getLeavesOfType(CREATURE_TRACKER_VIEW)[0];
+        const leaf = existing ?? workspace.getRightLeaf(true);
+        if (!leaf) return;
+        if (!existing) {
+            await leaf.setViewState({ type: CREATURE_TRACKER_VIEW, active: true });
         }
 
-        await this.combatant.render(creature);
-        this.app.workspace.revealLeaf(this.combatant.leaf);
+        await workspace.revealLeaf(leaf);
+        // Obsidian can restore a leaf before instantiating its registered view.
+        if (!(leaf.view instanceof CreatureView)) {
+            await leaf.setViewState({ type: CREATURE_TRACKER_VIEW, active: true });
+        }
+        if (leaf.view instanceof CreatureView) {
+            await leaf.view.render(creature);
+        }
     }
     private _builderIcon: HTMLElement;
     setBuilderIcon() {
