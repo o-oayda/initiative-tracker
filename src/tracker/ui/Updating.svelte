@@ -117,16 +117,12 @@
             <div class="updating-hp">
                 <!-- svelte-ignore a11y-autofocus -->
                 <div class="hp-status">
-                    {#if plugin.data.beginnerTips}
-                        <small class="label">
-                            Apply damage, (-)healing, (t)temp HP, or (m)max HP
-                        </small>
-                    {/if}
                     <div class="input">
-                        <tag
+                        <span
+                            class="effect-help"
+                            tabindex="0"
                             use:hpIcon
                             aria-label="Apply damage, (-)healing, (t)temp HP, or (m)max HP"
-                            style="margin: 0 0.2rem 0 0.7rem"
                         />
                         <input
                             type="text"
@@ -153,20 +149,15 @@
                     </div>
                 </div>
                 <div class="hp-status">
-                    {#if plugin.data.beginnerTips}
-                        <small class="label">
-                            Apply status effect to creatures that fail their
-                            saving throw
-                        </small>
-                    {/if}
                     <div class="input-status">
                         <div class="input">
-                            <div
+                            <span
+                                class="effect-help"
+                                tabindex="0"
                                 use:tagIcon
                                 aria-label="Apply status effect to creatures that fail their saving throw"
-                                style="margin: 0 0.2rem 0 0.7rem"
                             />
-                            <div use:conditionDiv />
+                            <div class="condition-field" use:conditionDiv />
                         </div>
                         <div
                             use:addStatusIcon
@@ -364,9 +355,34 @@
         text-align: center;
     }
     .updating-hp {
-        display: flex;
-        flex-flow: column;
-        gap: 0.5rem;
+        display: grid;
+        grid-template-columns: 6.5rem minmax(0, 1fr);
+        align-items: start;
+        column-gap: 0.75rem;
+    }
+    .updating-hp .input,
+    .updating-hp .input > input,
+    .condition-field,
+    .condition-field :global(input) {
+        min-width: 0;
+    }
+    .updating-hp .input,
+    .condition-field {
+        flex: 1;
+    }
+    .effect-help {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        cursor: help;
+        border-bottom: 1px dotted currentColor;
+    }
+    .updating-hp .input > input,
+    .condition-field :global(input) {
+        width: 100%;
+    }
+    .updating-hp .status-list-entries {
+        margin-right: 0;
     }
     .updating-container {
         display: flex;
