@@ -15,7 +15,7 @@
         <input
             class="editable initiative tree-item-flair"
             aria-label={`${initiative - modifier} + ${modifier}`}
-            on:click={function (evt) {
+            on:click|stopPropagation={function (evt) {
                 this.select();
             }}
             on:blur={function (evt) {

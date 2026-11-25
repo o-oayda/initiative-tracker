@@ -56,20 +56,20 @@
             <div
                 class="icon"
                 use:minus
-                on:click={() => {
+                on:click|stopPropagation={() => {
                     status.amount--;
                     if (status.amount <= 0) dispatch("remove");
                     else dispatch("amountChange");
                 }}
             />
             <span>{status.amount}</span>
-            <div class="icon" use:plus on:click={() => {
+            <div class="icon" use:plus on:click|stopPropagation={() => {
                 status.amount++;
                 dispatch("amountChange");
             }} />
         </div>
     {/if}
-    <div use:deleteIcon on:click={() => dispatch("remove")} />
+    <div use:deleteIcon on:click|stopPropagation={() => dispatch("remove")} />
 </div>
 
 <style>

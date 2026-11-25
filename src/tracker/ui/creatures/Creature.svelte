@@ -11,7 +11,6 @@
     import type InitiativeTracker from "src/main";
 
     const dispatch = createEventDispatcher();
-    const { updateTarget } = tracker;
 
     export let creature: Creature;
     const plugin = getContext<InitiativeTracker>("plugin");
@@ -20,6 +19,7 @@
 
     const name = () => creature.getName();
     const statblockLink = () => creature.getStatblockLink();
+    const statblockIcon = (node: HTMLElement) => setIcon(node, "scroll-text");
     const hiddenIcon = (div: HTMLElement) => {
         setIcon(div, HIDDEN);
     };
@@ -57,11 +57,10 @@
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
-<td class="initiative-container" on:click={(e) => e.stopPropagation()}>
+<td class="initiative-container">
     <Initiative
         initiative={creature.initiative}
         modifier={[creature.modifier].flat().reduce((a, b) => a + b, 0)}
-        on:click={(e) => e.stopPropagation()}
         on:initiative={(e) => {
             tracker.updateCreatures({
                 creature,
@@ -74,9 +73,6 @@
     <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div
         class="name-holder"
-        on:click|stopPropagation={(evt) => {
-            dispatch("open-combatant", creature);
-        }}
         on:mouseenter={tryHover}
         on:mouseleave={cancelHover}
     >
@@ -85,6 +81,15 @@
         {/if}
         {#if creature.friendly}
             <div class="centered-icon" use:friendlyIcon />
+        {/if}
+        {#if plugin.canUseStatBlocks || creature["statblock-link"]}
+            <button
+                type="button"
+                class="clickable-icon statblock-button"
+                aria-label={`Show statblock for ${creature.name}`}
+                use:statblockIcon
+                on:click|stopPropagation={() => dispatch("open-combatant", creature)}
+            />
         {/if}
         {#if creature.player}
             <strong class="name player">{creature.name}</strong>
@@ -95,8 +100,7 @@
             {/if}
         {/if}
     </div>
-    <!-- svelte-ignore a11y-click-events-have-key-events -->
-    <div class="statuses" on:click={(e) => e.stopPropagation()}>
+    <div class="statuses">
         {#if statuses.size}
             {#each [...statuses] as status}
                 <Status
@@ -135,12 +139,6 @@
 <td
     class="center hp-container creature-adder"
     class:mobile={Platform.isMobile}
-    on:click|stopPropagation={(evt) => {
-        const prev = $updateTarget;
-        $updateTarget = "hp";
-        if (prev == "ac") return;
-        tracker.setUpdate(creature, evt);
-    }}
 >
     <div>
         {@html creature.hpDisplay}
@@ -150,12 +148,6 @@
 <td
     class="center ac-container creature-adder"
     class:mobile={Platform.isMobile}
-    on:click|stopPropagation={(evt) => {
-        const prev = $updateTarget;
-        $updateTarget = "ac";
-        if (prev == "hp") return;
-        tracker.setUpdate(creature, evt);
-    }}
 >
     <div
         class:dirty-ac={creature.current_ac != creature.ac}
@@ -177,6 +169,9 @@
 </td>
 
 <style scoped>
+    .statblock-button {
+        padding: 0.15rem;
+    }
     .pf2e-adjustment {
         font-size: 0.7rem;
         padding: 0 0.25rem;
