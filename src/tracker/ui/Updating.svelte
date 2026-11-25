@@ -236,22 +236,6 @@
                     {/if}
                 </div>
             </div>
-            {#if options.length}
-                <div class="save-controls">
-                    <label class="save-type">
-                        <span>Save type</span>
-                        <span class="save-select">
-                            <select bind:value={saveId} on:change={clearSaveRolls}>
-                            {#each options as save}
-                                <option value={save.id}>{save.label}</option>
-                            {/each}
-                            </select>
-                            <span class="save-chevron" aria-hidden="true" use:saveChevron />
-                        </span>
-                    </label>
-                    <button type="button" class="mod-cta" on:click={rollSaves}>Roll saves</button>
-                </div>
-            {/if}
         {:else}
             <div class="hp-status">
                 {#if plugin.data.beginnerTips}
@@ -284,6 +268,38 @@
                 </div>
             </div>
         {/if}
+        <div class="save-controls">
+            {#if $updateTarget === "hp" && options.length}
+                <label class="save-type">
+                    <span>Save type</span>
+                    <span class="save-select">
+                        <select bind:value={saveId} on:change={clearSaveRolls}>
+                            {#each options as save}
+                                <option value={save.id}>{save.label}</option>
+                            {/each}
+                        </select>
+                        <span class="save-chevron" aria-hidden="true" use:saveChevron />
+                    </span>
+                </label>
+                <button type="button" class="mod-cta" on:click={rollSaves}>Roll saves</button>
+            {/if}
+            <div class="updating-buttons">
+                <button
+                    type="button"
+                    class="clickable-icon"
+                    use:checkIcon
+                    on:click={() => performUpdate(true)}
+                    aria-label="Apply"
+                />
+                <button
+                    type="button"
+                    class="clickable-icon"
+                    use:cancelIcon
+                    on:click={() => performUpdate(false)}
+                    aria-label="Cancel"
+                />
+            </div>
+        </div>
     </div>
     <div style="margin: 0.5rem">
         <table class="updating-creature-table">
@@ -389,20 +405,6 @@
                 {/each}
             </tbody>
         </table>
-    </div>
-    <div class="updating-buttons">
-        <span
-            use:checkIcon
-            on:click={() => performUpdate(true)}
-            style="cursor:pointer"
-            aria-label="Apply"
-        />
-        <span
-            use:cancelIcon
-            on:click={() => performUpdate(false)}
-            style="cursor:pointer"
-            aria-label="Cancel"
-        />
     </div>
 {:else}
     <div on:load={() => performUpdate(false)} />
@@ -538,8 +540,13 @@
     .updating-buttons {
         display: flex;
         justify-content: flex-end;
-        gap: 1rem;
-        margin-right: 0.7rem;
+        gap: 0.5rem;
+        margin-inline-start: auto;
+    }
+    .updating-buttons .clickable-icon {
+        --icon-color: var(--text-normal);
+        --icon-color-hover: var(--text-normal);
+        color: var(--text-normal);
     }
     td > input {
         margin: 0;
