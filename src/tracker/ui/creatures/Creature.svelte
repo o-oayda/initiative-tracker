@@ -13,6 +13,8 @@
     const dispatch = createEventDispatcher();
 
     export let creature: Creature;
+    export let staged = false;
+    export let turnRunning = false;
     const plugin = getContext<InitiativeTracker>("plugin");
     let creatureControls: CreatureControls;
     $: statuses = creature.status;
@@ -20,6 +22,12 @@
     const name = () => creature.getName();
     const statblockLink = () => creature.getStatblockLink();
     const statblockIcon = (node: HTMLElement) => setIcon(node, "scroll-text");
+    const turnIcon = (node: HTMLElement, running: boolean) => {
+        const update = (active: boolean) => setIcon(node, active ? "circle" : "circle-dashed");
+        update(running);
+        return { update };
+    };
+    const stagedIcon = (node: HTMLElement) => setIcon(node, "circle-check");
     const hiddenIcon = (div: HTMLElement) => {
         setIcon(div, HIDDEN);
     };
@@ -58,16 +66,23 @@
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <td class="initiative-container">
-    <Initiative
-        initiative={creature.initiative}
-        modifier={[creature.modifier].flat().reduce((a, b) => a + b, 0)}
-        on:initiative={(e) => {
-            tracker.updateCreatures({
-                creature,
-                change: { initiative: Number(e.detail) }
-            });
-        }}
-    />
+    <div class="initiative-score">
+        <span class="turn-indicator">
+            {#if creature.active}
+                <span role="img" aria-label={turnRunning ? "Active turn" : "Paused turn"} use:turnIcon={turnRunning} />
+            {/if}
+        </span>
+        <Initiative
+            initiative={creature.initiative}
+            modifier={[creature.modifier].flat().reduce((a, b) => a + b, 0)}
+            on:initiative={(e) => {
+                tracker.updateCreatures({
+                    creature,
+                    change: { initiative: Number(e.detail) }
+                });
+            }}
+        />
+    </div>
 </td>
 <td class="name-container">
     <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -90,6 +105,9 @@
                 use:statblockIcon
                 on:click|stopPropagation={() => dispatch("open-combatant", creature)}
             />
+        {/if}
+        {#if staged}
+            <span class="centered-icon staged-icon" role="img" aria-label="Staged for effects" use:stagedIcon />
         {/if}
         {#if creature.player}
             <strong class="name player">{creature.name}</strong>
@@ -172,6 +190,14 @@
     .statblock-button {
         padding: 0.15rem;
     }
+    .staged-icon {
+        justify-content: center;
+        flex: 0 0 auto;
+        width: 1.1rem;
+        height: 1.1rem;
+        color: var(--icon-color);
+        --icon-size: var(--icon-s);
+    }
     .pf2e-adjustment {
         font-size: 0.7rem;
         padding: 0 0.25rem;
@@ -215,6 +241,21 @@
     }
     
 
+    .initiative-score {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+    .turn-indicator {
+        display: flex;
+        flex: 0 0 16px;
+        color: var(--text-normal);
+        --icon-size: 16px;
+        --icon-stroke: 2.5px;
+    }
+    .turn-indicator > span {
+        display: flex;
+    }
     .initiative-container {
         border-top-left-radius: 0.25rem;
         border-bottom-left-radius: 0.25rem;

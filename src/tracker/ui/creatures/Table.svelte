@@ -14,7 +14,7 @@
     import { getContext } from "svelte";
 
     const plugin = getContext<InitiativeTracker>("plugin");
-    const { state, ordered } = tracker;
+    const { state, ordered, updating } = tracker;
 
     $: items = [...$ordered].map((c) => {
         return { creature: c, id: getId() };
@@ -67,17 +67,23 @@
 
 <table class="initiative-tracker-table">
     {#if $ordered.length}
+        <colgroup>
+            <col style="width:46px" />
+            <col />
+            <col style="width:15%" />
+            <col style="width:15%" />
+            <col style="width:5%" />
+        </colgroup>
         <thead class="tracker-table-header">
             <td
-                style="width: 10%;"
                 use:diceIcon
                 aria-label="Re-Roll Initiatives"
                 on:click={(evt) => tracker.roll(plugin)}
             />
-            <th class="left" style="width:55%">Name</th>
-            <th style="width:15%" use:hpIcon class="center" />
-            <th style="width:15%" use:acIcon class="center" />
-            <th style="width:5%" />
+            <th class="left">Name</th>
+            <th use:hpIcon class="center" />
+            <th use:acIcon class="center" />
+            <th />
         </thead>
         <tbody
             use:dndzone={{
@@ -90,13 +96,13 @@
             on:finalize={handleDndFinalize}
         >
             {#each items as { creature, id } (id)}
+                {@const staged = $updating.has(creature)}
                 <tr
                     class="draggable initiative-tracker-creature"
                     class:disabled={!creature.enabled}
-                    class:active={$state && creature.active}
-                    class:paused-active={!$state && creature.active}
                     class:viewing={creature.viewing}
                     class:friendly={creature.friendly}
+                    class:staged
                     animate:flip={{ duration: flipDurationMs }}
                     data-hp={creature.hp}
                     data-hp-max={creature.current_max}
@@ -111,6 +117,8 @@
                 >
                     <CreatureTemplate
                         {creature}
+                        {staged}
+                        turnRunning={$state}
                         on:hp
                         on:tag
                         on:edit
@@ -158,31 +166,8 @@
     .initiative-tracker-creature {
         position: relative;
     }
-    .initiative-tracker-creature.active {
-        background-color: rgba(0, 0, 0, 0.1);
-    }
-    :global(.theme-dark) .initiative-tracker-creature.active {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-    .initiative-tracker-creature.paused-active {
-        background-color: inherit;
-        background-image: repeating-linear-gradient(
-            45deg,
-            transparent 0,
-            transparent 8px,
-            rgba(0, 0, 0, 0.1) 8px,
-            rgba(0, 0, 0, 0.1) 16px
-        );
-    }
-    :global(.theme-dark) .initiative-tracker-creature.paused-active {
-        background-color: inherit;
-        background-image: repeating-linear-gradient(
-            45deg,
-            transparent 0,
-            transparent 8px,
-            rgba(255, 255, 255, 0.1) 8px,
-            rgba(255, 255, 255, 0.1) 16px
-        );
+    .initiative-tracker-creature.staged > :global(td) {
+        background-color: color-mix(in srgb, var(--interactive-accent) 16%, transparent);
     }
     .initiative-tracker-creature.disabled :global(*) {
         color: var(--text-faint);
