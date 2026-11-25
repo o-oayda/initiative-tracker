@@ -6,13 +6,58 @@
     import { getContext } from "svelte";
     import { getId } from "src/utils/creature";
     import Status from "src/tracker/ui/creatures/Status.svelte";
+    import { findSaveBonus, saveOptions } from "src/utils/save-rolls";
+    import type { Creature } from "src/utils/creature";
 
     import { tracker } from "../stores/tracker";
-    const { updating, updateTarget } = tracker;
+    const { updating, updateTarget, data } = tracker;
     import { writable } from "svelte/store";
     import type { Condition } from "src/types/creatures";
 
     const plugin = getContext<InitiativeTracker>("plugin");
+    const saveChevron = (node: HTMLElement) => setIcon(node, "chevron-down");
+    let saveId = "";
+    type SaveResult = { total: number; calculation: string };
+    let saveResults = new Map<object, SaveResult>();
+    let manualBonuses: Record<string, number | undefined> = {};
+    $: system = $data?.rpgSystem ?? plugin.data.rpgSystem;
+    $: options = saveOptions(system);
+    $: if (!options.some(save => save.id === saveId)) saveId = options[0]?.id ?? "";
+    $: if (!$updating.size) clearSaveRolls();
+    $: bonuses = new Map([...$updating.keys()].map(creature => [
+        creature,
+        getSaveBonus(creature, system, saveId)
+    ]));
+
+    function clearSaveRolls() {
+        saveResults = new Map();
+        manualBonuses = {};
+    }
+
+    function getSaveBonus(creature: Creature, system: string, saveId: string) {
+        if (!saveId) return;
+        const bestiary = plugin.getBaseCreatureFromBestiary(creature.name);
+        const frontmatter = creature.path ? plugin.app.metadataCache.getCache(creature.path)?.frontmatter : undefined;
+        const result = findSaveBonus(system, saveId, creature.creature, bestiary, frontmatter);
+        if (!result || system !== "pathfinder2e") return result;
+        const change = creature.pf2eAdjustment === "elite" ? 2 : creature.pf2eAdjustment === "weak" ? -2 : 0;
+        return { ...result, bonus: result.bonus + change };
+    }
+
+    function rollSaves() {
+        const results = new Map<object, SaveResult>();
+        for (const [creature, entry] of $updating) {
+            const bonus = bonuses.get(creature)?.bonus ?? manualBonuses[creature.id];
+            if (bonus == null || !Number.isInteger(bonus)) continue;
+            const die = Math.floor(Math.random() * 20) + 1;
+            const total = die + bonus;
+            results.set(entry, {
+                total,
+                calculation: `d20: ${die} ${bonus < 0 ? "−" : "+"} ${Math.abs(bonus)} = ${total}`
+            });
+        }
+        saveResults = results;
+    }
     const hpIcon = (node: HTMLElement) => {
         setIcon(node, HP);
     };
@@ -191,6 +236,22 @@
                     {/if}
                 </div>
             </div>
+            {#if options.length}
+                <div class="save-controls">
+                    <label class="save-type">
+                        <span>Save type</span>
+                        <span class="save-select">
+                            <select bind:value={saveId} on:change={clearSaveRolls}>
+                            {#each options as save}
+                                <option value={save.id}>{save.label}</option>
+                            {/each}
+                            </select>
+                            <span class="save-chevron" aria-hidden="true" use:saveChevron />
+                        </span>
+                    </label>
+                    <button type="button" class="mod-cta" on:click={rollSaves}>Roll saves</button>
+                </div>
+            {/if}
         {:else}
             <div class="hp-status">
                 {#if plugin.data.beginnerTips}
@@ -229,6 +290,10 @@
             <thead class="updating-creature-table-header">
                 <th style="width:100%" class="left">Name</th>
                 {#if $updateTarget == "hp"}
+                    {#if options.length}
+                        <th class="save-column center">Save</th>
+                        <th class="save-column center">Result</th>
+                    {/if}
                     <th style="padding:0 0.2rem" class="center">Saved</th>
                     <th style="padding:0 0.2rem" class="center">Resist</th>
                     <th style="padding:0 0.2rem" class="center">Modifier</th>
@@ -247,6 +312,31 @@
                             </span>
                         </td>
                         {#if $updateTarget == "hp"}
+                            {#if options.length}
+                                {@const result = saveResults.get(update)}
+                                {@const bonus = bonuses.get(creature)}
+                                <td class="save-column center">
+                                    {#if bonus}
+                                        <span class="save-modifier" aria-label={bonus.detail ?? "Save bonus"}>
+                                            {bonus.bonus >= 0 ? "+" : "−"}{Math.abs(bonus.bonus)}
+                                        </span>
+                                    {:else}
+                                        <input
+                                            class="save-bonus"
+                                            type="number"
+                                            step="1"
+                                            placeholder="—"
+                                            aria-label={`No listed save bonus for ${creature.name}. Enter a bonus to roll.`}
+                                            bind:value={manualBonuses[creature.id]}
+                                        />
+                                    {/if}
+                                </td>
+                                <td class="save-column center" aria-live="polite">
+                                    {#if result}
+                                        <strong class="save-result" aria-label={result.calculation}>{result.total}</strong>
+                                    {/if}
+                                </td>
+                            {/if}
                             <td class="center">
                                 <input
                                     type="checkbox"
@@ -319,6 +409,58 @@
 {/if}
 
 <style scoped>
+    .save-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.4rem 0.5rem;
+        background: var(--background-secondary);
+        border-radius: var(--radius-s);
+    }
+    .save-type {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: var(--font-semibold);
+    }
+    .save-select {
+        position: relative;
+        display: inline-flex;
+    }
+    .save-select select {
+        appearance: none;
+        background-image: none;
+        padding-inline-end: 1.75rem;
+    }
+    .save-chevron {
+        position: absolute;
+        inset-inline-end: 0.5rem;
+        inset-block: 0;
+        display: flex;
+        align-items: center;
+        pointer-events: none;
+        --icon-size: var(--icon-xs);
+    }
+    .save-column {
+        padding-inline: 0.35rem;
+        white-space: nowrap;
+    }
+    .save-result {
+        cursor: help;
+    }
+    .save-bonus {
+        width: 2.1rem;
+        height: 1.35rem;
+        padding-inline: 0.125rem;
+        appearance: textfield;
+        text-align: center;
+    }
+    .save-bonus::-webkit-inner-spin-button,
+    .save-bonus::-webkit-outer-spin-button {
+        appearance: none;
+        margin: 0;
+    }
     .input {
         display: flex;
         align-items: center;
