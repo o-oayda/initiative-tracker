@@ -5,7 +5,7 @@
 
     import { AC, FRIENDLY, HP, INITIATIVE, RESTART } from "src/utils";
     import type { Creature } from "src/utils/creature";
-    import { findConditionNote, previewConditionNote } from "src/utils/condition-link";
+    import { findConditionNote, previewTrackerLink } from "src/utils/condition-link";
     import { createEventDispatcher, onDestroy, setContext } from "svelte";
     import type InitiativeTracker from "src/main";
 
@@ -238,7 +238,7 @@
                                             href={link}
                                             data-href={link}
                                             on:click|preventDefault|stopPropagation={() => plugin.app.workspace.openLinkText(link, "/", false)}
-                                            on:mouseover={(evt) => previewConditionNote(plugin.app, evt, link)}
+                                            on:mouseover={(evt) => previewTrackerLink(plugin.app, evt, link)}
                                         >{status.name}</a>
                                     {:else}
                                         {status.name}
@@ -266,7 +266,7 @@
                                         href={status.link}
                                         data-href={status.link}
                                         on:click|preventDefault={() => plugin.app.workspace.openLinkText(status.link, "/", false)}
-                                        on:mouseover={(evt) => previewConditionNote(plugin.app, evt, status.link)}
+                                        on:mouseover={(evt) => previewTrackerLink(plugin.app, evt, status.link)}
                                     >{status.linkText ?? status.link}</a>
                                 </div>
                             {/each}

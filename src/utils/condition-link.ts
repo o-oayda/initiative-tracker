@@ -12,14 +12,19 @@ export function findConditionNote(app: App, name: string): string | undefined {
 
 export const CONDITION_HOVER_SOURCE = "initiative-tracker-conditions";
 
-export function previewConditionNote(app: App, event: MouseEvent, linktext: string) {
-    const targetEl = event.currentTarget as HTMLElement;
+export function previewTrackerLink(
+    app: App,
+    event: MouseEvent,
+    linktext: string,
+    targetEl = event.currentTarget as HTMLElement,
+    sourcePath = ""
+) {
     app.workspace.trigger("hover-link", {
         event,
         source: CONDITION_HOVER_SOURCE,
         hoverParent: targetEl,
         targetEl,
         linktext,
-        sourcePath: ""
+        sourcePath
     });
 }

@@ -1,5 +1,4 @@
 import {
-    debounce,
     ExtraButtonComponent,
     ItemView,
     MarkdownRenderer,
@@ -18,6 +17,7 @@ import type InitiativeTracker from "../main";
 
 import App from "./ui/App.svelte";
 import type { Creature } from "../utils/creature";
+import { previewTrackerLink } from "../utils/condition-link";
 import { adjustedPf2eStatblock, originalPf2eStatblockSource } from "../utils/pf2e-adjustment";
 import { PLAYER_VIEW_VIEW } from "../utils/constants";
 import type PlayerView from "./player-view";
@@ -90,27 +90,21 @@ export default class TrackerView extends ItemView {
 
 export class CreatureView extends ItemView {
     viewedCreatureId?: string;
+    private statblockSourcePath = "";
     buttonEl = this.contentEl.createDiv("creature-view-button");
     statblockEl = this.contentEl.createDiv("creature-statblock-container");
     constructor(leaf: WorkspaceLeaf, public plugin: InitiativeTracker) {
         super(leaf);
         this.load();
         this.containerEl.addClass("creature-view-container");
-        this.containerEl.on(
-            "mouseover",
-            "a.internal-link",
-            debounce(
-                (ev) =>
-                    app.workspace.trigger(
-                        "link-hover",
-                        {}, //hover popover, but don't need
-                        ev.target as HTMLElement, //targetEl
-                        (ev.target as HTMLAnchorElement).dataset.href, //linkText
-                        "initiative-tracker " //source
-                    ),
-                10
-            )
-        );
+        this.registerDomEvent(this.statblockEl, "mouseover", (event) => {
+            if (!(event.target instanceof Element)) return;
+            const anchor = event.target.closest<HTMLAnchorElement>("a.internal-link");
+            if (!anchor || !this.statblockEl.contains(anchor)) return;
+            if (event.relatedTarget instanceof Node && anchor.contains(event.relatedTarget)) return;
+            const link = anchor.dataset.href ?? anchor.getAttribute("href");
+            if (link) previewTrackerLink(this.app, event, link, anchor, this.statblockSourcePath);
+        }, true);
         this.containerEl.on("click", "a.internal-link", (ev) =>
             app.workspace.openLinkText(
                 (ev.target as HTMLAnchorElement).dataset.href,
@@ -146,6 +140,7 @@ export class CreatureView extends ItemView {
     private async renderStatblock(creature?: Creature) {
         this.statblockEl.empty();
         this.viewedCreatureId = creature?.id;
+        this.statblockSourcePath = creature?.path ?? "";
         if (!creature) {
             this.statblockEl.createEl("em", {
                 text: "Select a creature to view it here."
@@ -214,6 +209,7 @@ export class CreatureView extends ItemView {
 
         let content = `Oops! Something is wrong with your statblock-link:<br />${embedLink}`;
         if (file) {
+            this.statblockSourcePath = file.path;
             const fileContent = await this.app.vault.cachedRead(file);
             if (subpath && fileContent) {
                 const cache = app.metadataCache.getFileCache(file);

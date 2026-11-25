@@ -3,7 +3,7 @@
     import type { Condition } from "src/types/creatures";
     import { createEventDispatcher, getContext } from "svelte";
     import type InitiativeTracker from "src/main";
-    import { findConditionNote, previewConditionNote } from "src/utils/condition-link";
+    import { findConditionNote, previewTrackerLink } from "src/utils/condition-link";
     
     const dispatch = createEventDispatcher();
 
@@ -45,7 +45,7 @@
                 href={link}
                 data-href={link}
                 on:click|preventDefault|stopPropagation={() => plugin.app.workspace.openLinkText(link, "/", false)}
-                on:mouseover={(evt) => previewConditionNote(plugin.app, evt, link)}
+                on:mouseover={(evt) => previewTrackerLink(plugin.app, evt, link)}
             >{status.linkText ?? (concentration ? link : status.name)}</a>
         {:else}
             {status.name}
