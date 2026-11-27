@@ -9,6 +9,9 @@ import type InitiativeTracker from "../../../main";
 import { Modal } from "obsidian";
 import copy from "fast-copy";
 import { getId } from "../../../utils/creature";
+import { pf2eCreatureLevel } from "../../../utils/pf2e-adjustment";
+
+import { pf2eCreatureRarity, pf2eCreatureTraits } from "../../../utils/pf2e-traits";
 
 export const playerCount = writable(0);
 
@@ -27,12 +30,12 @@ export class TableHeader {
         switch (this.type) {
             case SortFunctions.LOCAL_COMPARE: {
                 return (a: Record<string, any>, b: Record<string, any>) =>
-                    (a[this.field] ?? "").localeCompare(b[this.field] ?? "");
+                    String(this.getValue(a) ?? "").localeCompare(String(this.getValue(b) ?? ""));
             }
             case SortFunctions.CONVERT_FRACTION: {
                 return (a: Record<string, any>, b: Record<string, any>) =>
-                    convertFraction(a[this.field] ?? 0) -
-                    convertFraction(b[this.field] ?? 0);
+                    this.numericValue(this.getValue(a)) -
+                    this.numericValue(this.getValue(b));
             }
             case SortFunctions.CUSTOM: {
                 return new Function("a", "b", this.func!) as (
@@ -41,6 +44,18 @@ export class TableHeader {
                 ) => number;
             }
         }
+    }
+
+    public getValue(creature: Record<string, any>) {
+        if (this.field === "pf2eTraits") return pf2eCreatureTraits(creature);
+        if (this.field === "pf2eRarity") return pf2eCreatureRarity(creature);
+        return this.field === "level"
+            ? pf2eCreatureLevel(creature.level)
+            : creature[this.field];
+    }
+
+    private numericValue(value: any): number {
+        return this.field === "level" ? value ?? -Infinity : convertFraction(value ?? 0);
     }
 
     public sortAsc(a: SRDMonster, b: SRDMonster) {
@@ -102,6 +117,23 @@ export const NAME_HEADER = TableHeader.fromState({
 
 export type BuiltTableStore = ReturnType<typeof createTable>;
 export function createTable(plugin: InitiativeTracker, monsters: SRDMonster[]) {
+    const pf2eHeaders: Record<string, TableHeaderState> = {
+        cr: { text: "Level", field: "level", type: SortFunctions.CONVERT_FRACTION },
+        type: { text: "Traits", field: "pf2eTraits", type: SortFunctions.LOCAL_COMPARE },
+        alignment: { text: "Rarity", field: "pf2eRarity", type: SortFunctions.LOCAL_COMPARE }
+    };
+    const isPf2e = plugin.data.rpgSystem === "pathfinder2e";
+    const toHeader = (header: TableHeaderState) => TableHeader.fromState(
+        (isPf2e && pf2eHeaders[header.field]) || header
+    );
+    const toSavedHeader = (header: TableHeaderState) => {
+        if (!isPf2e) return header;
+        return DEFAULT_HEADERS.find(({ field }) => {
+            const display = pf2eHeaders[field];
+            return display?.field === header.field &&
+                display.text === header.text && display.type === header.type && !header.func;
+        }) ?? header;
+    };
     if (!plugin.data.builder) {
         plugin.data.builder = {
             sidebarIcon: true,
@@ -115,7 +147,7 @@ export function createTable(plugin: InitiativeTracker, monsters: SRDMonster[]) {
     }
 
     const store = writable<TableHeader[]>(
-        plugin.data.builder.headers.map((h) => TableHeader.fromState(h))
+        plugin.data.builder.headers.map(toHeader)
     );
     const { subscribe, set, update } = store;
     const creatures = writable<SRDMonster[]>(copy(monsters));
@@ -163,8 +195,8 @@ export function createTable(plugin: InitiativeTracker, monsters: SRDMonster[]) {
             }),
         setHeadersFromState: (headers: TableHeaderState[]) =>
             updateAndSave((_) => {
-                plugin.data.builder.headers = headers;
-                const newHeaders = headers.map((h) => TableHeader.fromState(h));
+                plugin.data.builder.headers = headers.map(toSavedHeader);
+                const newHeaders = headers.map(toHeader);
                 const active = _.findIndex((h) => h.active);
                 if (active >= 0 && active < newHeaders.length) {
                     newHeaders[active].active = true;
@@ -174,9 +206,7 @@ export function createTable(plugin: InitiativeTracker, monsters: SRDMonster[]) {
         resetToDefault: () =>
             updateAndSave((_) => {
                 plugin.data.builder.headers = copy(DEFAULT_HEADERS);
-                return plugin.data.builder.headers.map((h) =>
-                    TableHeader.fromState(h)
-                );
+                return plugin.data.builder.headers.map(toHeader);
             })
     };
 }

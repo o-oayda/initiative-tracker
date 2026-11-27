@@ -54,6 +54,13 @@ const PF2E_DND5E_DIFFICULTY_MAPPING: Record<string, string> = {
     extreme: "deadly"
 };
 
+export function effectivePartyLevel(playerLevels?: number[]): number {
+    if (!playerLevels?.length) return 0;
+    return Math.round(
+        playerLevels.reduce((sum, level) => sum + level, 0) / playerLevels.length
+    );
+}
+
 export class Pathfinder2eRpgSystem extends RpgSystem {
     plugin: InitiativeTracker;
 
@@ -75,18 +82,14 @@ export class Pathfinder2eRpgSystem extends RpgSystem {
         creature: GenericCreature,
         playerLevels?: number[]
     ): number {
-        const lvlValue = getFromCreatureOrBestiary(
+        const lvlValue = creature.level ?? getFromCreatureOrBestiary(
             this.plugin,
             creature,
             (c) => c?.level
         );
         const lvl = Number(lvlValue?.toString().split(" ").slice(-1)[0]);
         if (!Number.isFinite(lvl)) return 0;
-        const partyLvl = Math.round(
-            playerLevels?.length ?? 0 > 0
-                ? playerLevels.reduce((a, b) => a + b) / playerLevels.length
-                : 0
-        );
+        const partyLvl = effectivePartyLevel(playerLevels);
 
         const creature_differences = String(lvl - partyLvl);
 
@@ -144,7 +147,7 @@ export class Pathfinder2eRpgSystem extends RpgSystem {
                 "trivial",
             value: creatureXp,
             title: "Total XP",
-            intermediateValues: [{ label: "Total XP", value: creatureXp }]
+            intermediateValues: []
         };
     }
 }

@@ -15,7 +15,7 @@
     import { START_ENCOUNTER } from "src/utils";
     import { getContext } from "svelte";
     import { tracker } from "src/tracker/stores/tracker";
-    import type { CreatureState, SRDMonster } from "src/types/creatures";
+    import type { CreatureState } from "src/types/creatures";
     import { writable } from "svelte/store";
 
     const { players } = encounter;
@@ -124,7 +124,7 @@
                     ...[...$encounter.entries()]
                         .map((c) =>
                             [...Array(c[1]).keys()].map(() =>
-                                CreatureCreator.from(c[0])
+                                    CreatureCreator.new(CreatureCreator.from(c[0]))
                             )
                         )
                         .flat()
@@ -217,7 +217,7 @@
                                 CreatureCreator.fromJSON(
                                     creature,
                                     plugin
-                                ) as any as SRDMonster
+                                )
                             );
                         }
                     }
@@ -245,8 +245,11 @@
         }
         if ($encounter?.size) {
             enc.creatures = [...$encounter.entries()].map(([c, v]) => {
+                const adjustment = plugin.data.rpgSystem === "pathfinder2e"
+                    ? c.pf2eAdjustment === "weak" ? " (W)" : c.pf2eAdjustment === "elite" ? " (E)" : ""
+                    : "";
                 return {
-                    [Number(v)]: `${c.name}${c.friendly ? ", friendly" : ""}${
+                    [Number(v)]: `${c.name}${adjustment}${c.friendly ? ", friendly" : ""}${
                         c.hidden ? ", hidden" : ""
                     }`
                 };

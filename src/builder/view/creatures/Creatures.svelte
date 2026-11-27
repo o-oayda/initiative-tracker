@@ -13,9 +13,10 @@
     import Ajv from "ajv";
     import schema from "../../stores/filter/filter-schema.json";
     import type { BuilderState } from "src/builder/builder.types";
+    import { pf2eCreatureTraits } from "src/utils/pf2e-traits";
 
     const table = getContext<BuiltTableStore>("table");
-    const { sortDir, allHeaders } = table;
+    const { sortDir, allHeaders, creatures } = table;
     const filterStore = getContext<BuiltFilterStore>("filters");
     const { filtered, layout } = filterStore;
     const plugin = getContext<InitiativeTracker>("plugin");
@@ -131,7 +132,29 @@
     };
 
     let page = 1;
-    $: pages = Math.ceil($filtered.length / slice);
+    let selectedTraits: string[] = [];
+    let traitSearch = "";
+    const startsWithLetter = /^\p{L}/u;
+    const isPf2e = plugin.data.rpgSystem === "pathfinder2e";
+    $: availableTraits = isPf2e
+        ? [...new Set($creatures.flatMap(pf2eCreatureTraits))].sort((a, b) => Number(startsWithLetter.test(b)) - Number(startsWithLetter.test(a)) || a.localeCompare(b))
+        : [];
+    $: visibleTraits = availableTraits.filter(trait => trait.includes(traitSearch.trim().toLowerCase()));
+    $: matches = selectedTraits.length
+        ? $filtered.filter(creature => {
+            const traits = pf2eCreatureTraits(creature);
+            return selectedTraits.every(trait => traits.includes(trait));
+        })
+        : $filtered;
+    $: pages = Math.max(1, Math.ceil(matches.length / slice));
+    $: page = Math.min(page, pages);
+
+    function toggleTrait(trait: string) {
+        selectedTraits = selectedTraits.includes(trait)
+            ? selectedTraits.filter(selected => selected !== trait)
+            : [...selectedTraits, trait];
+        page = 1;
+    }
 </script>
 
 <div class="filters">
@@ -139,14 +162,48 @@
 </div>
 
 {#if $allHeaders.length}
-    <table>
+    <table class:pf2e-table={isPf2e}>
+        {#if isPf2e}
+            <colgroup>
+                {#each $allHeaders as header}
+                    <col class:traits-column={header.field === "pf2eTraits"}
+                        class:level-column={header.field === "level"}
+                        class:detail-column={header.field === "size" || header.field === "pf2eRarity"} />
+                {/each}
+            </colgroup>
+        {/if}
         <thead>
             {#each $allHeaders as header (header.text)}
-                <th
-                    on:click={() => {
-                        table.sort(header);
-                    }}
-                >
+                <th on:click={() => {
+                    if (header.field !== "pf2eTraits") table.sort(header);
+                }}>
+                    {#if header.field === "pf2eTraits"}
+                        <div class="trait-heading">
+                            <details class="trait-picker">
+                                <summary>{header.text}</summary>
+                                <div class="trait-options" aria-label="Required traits">
+                                    <input class="trait-search" type="search" placeholder="Search traits"
+                                        aria-label="Search traits" bind:value={traitSearch} />
+                                    {#each visibleTraits as trait (trait)}
+                                        <label>
+                                            <input type="checkbox" checked={selectedTraits.includes(trait)}
+                                                on:change={() => toggleTrait(trait)} />
+                                            {trait}
+                                        </label>
+                                    {:else}
+                                        <span>No matching traits</span>
+                                    {/each}
+                                </div>
+                            </details>
+                            {#each selectedTraits as trait}
+                                <button type="button" class="selected-trait"
+                                    aria-label={`Remove required trait: ${trait}`}
+                                    on:click={() => toggleTrait(trait)}>
+                                    {trait} ×
+                                </button>
+                            {/each}
+                        </div>
+                    {:else}
                     <div class="table-header">
                         <span class="table-header-content">{header.text}</span>
                         {#if header.active}
@@ -157,12 +214,15 @@
                             {/if}
                         {/if}
                     </div>
+                    {/if}
                 </th>
             {/each}
         </thead>
         <tbody>
-            {#each $filtered.slice((page - 1) * slice, page * slice) as creature}
-                <Creature {creature} />
+            {#each matches.slice((page - 1) * slice, page * slice) as creature}
+                <Creature {creature} {selectedTraits} on:toggle-trait={(event) => toggleTrait(event.detail)} />
+            {:else}
+                <tr><td colspan={$allHeaders.length}>No matching creatures</td></tr>
             {/each}
         </tbody>
     </table>
@@ -179,6 +239,67 @@
 />
 
 <style scoped>
+    .pf2e-table {
+        table-layout: fixed;
+        overflow-wrap: anywhere;
+    }
+    .traits-column { width: 27%; }
+    .level-column { width: 9%; }
+    .detail-column { width: 14%; }
+    .trait-search {
+        position: sticky;
+        top: 0;
+        width: 100%;
+        margin-bottom: 0.25rem;
+        background-color: var(--background-primary);
+    }
+    .trait-heading {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+    .trait-picker {
+        position: relative;
+    }
+    .trait-picker summary {
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .trait-options {
+        position: absolute;
+        z-index: 5;
+        inset-inline-start: 0;
+        top: 100%;
+        width: 11rem;
+        max-height: 15rem;
+        overflow: auto;
+        padding: 0.35rem;
+        background: var(--background-primary);
+        border: 1px solid var(--background-modifier-border);
+        border-radius: var(--radius-s);
+        box-shadow: var(--shadow-s);
+    }
+    .trait-options label {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.15rem;
+        cursor: pointer;
+        overflow-wrap: anywhere;
+    }
+    .selected-trait {
+        height: auto;
+        max-width: 100%;
+        white-space: normal;
+        padding: 0.15em 0.45em;
+        border: 2px solid #d9c484;
+        border-radius: 0;
+        background: var(--statblock-color-trait, #560c06);
+        color: #fff;
+        font-size: 0.75em;
+        text-transform: uppercase;
+    }
     .filters {
         margin: 1rem 0;
     }

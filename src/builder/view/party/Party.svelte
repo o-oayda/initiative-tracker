@@ -2,7 +2,8 @@
     import { setIcon, Setting } from "obsidian";
 
     import { getContext } from "svelte";
-    import { DISABLE, ENABLE } from "src/utils";
+    import { DISABLE, ENABLE, RpgSystemSetting } from "src/utils";
+    import { effectivePartyLevel } from "src/utils/rpg-system/pf2e";
 
     import { players } from "../../stores/players";
     import Experience from "./Experience.svelte";
@@ -11,6 +12,8 @@
     const { party, generics } = players;
 
     const plugin = getContext("plugin");
+    $: enabledLevels = $players.filter(player => player.enabled).map(player => player.level);
+    $: effectiveLevel = effectivePartyLevel(enabledLevels);
     
     const open = plugin.data.builder.showParty;
 
@@ -176,12 +179,26 @@
                         use:addIcon
                     />
                 </div>
+                {#if plugin.data.rpgSystem === RpgSystemSetting.Pathfinder2e && enabledLevels.length}
+                    <div class="effective-level"
+                        tabindex="0"
+                        aria-label={`Average of enabled players: (${enabledLevels.join(" + ")}) ÷ ${enabledLevels.length}, rounded to ${effectiveLevel}.`}
+                    >
+                        Effective Level <strong>{effectiveLevel}</strong>
+                    </div>
+                {/if}
             </div>
         </div>
     </Collapsible>
 </div>
 
 <style scoped>
+    .effective-level {
+        border-top: 1px solid var(--background-modifier-border);
+        margin-top: 0.25rem;
+        padding-top: 0.5rem;
+        cursor: help;
+    }
     .players {
         display: flex;
         flex-flow: column;

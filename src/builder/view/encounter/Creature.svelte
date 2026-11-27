@@ -1,11 +1,12 @@
 <script lang="ts">
-    import type { SRDMonster } from "src/types/creatures";
+    import type { EncounterCreature } from "../../stores/encounter";
     import { ExtraButtonComponent, setIcon } from "obsidian";
     import { convertFraction, FRIENDLY, getRpgSystem, HIDDEN } from "src/utils";
     import { encounter } from "../../stores/encounter";
     import Nullable from "../Nullable.svelte";
     import { getContext } from "svelte";
-    import { Creature as CreatureCreator } from "src/utils/creature";
+    import CreatureName from "../CreatureName.svelte";
+    import { pf2eCreatureLevel, type Pf2eAdjustment } from "src/utils/pf2e-adjustment";
 
     const { players } = encounter;
     const { average } = players;
@@ -35,7 +36,11 @@
     };
 
     export let count: number;
-    export let creature: SRDMonster;
+    export let creature: EncounterCreature;
+    function changeAdjustment(event: Event) {
+        const select = event.currentTarget as HTMLSelectElement;
+        encounter.setPf2eAdjustment(creature, select.value as Pf2eAdjustment);
+    }
     $: insignificant =
         "cr" in creature &&
         creature.cr &&
@@ -51,9 +56,6 @@
 
     const skull = (node: HTMLElement) => setIcon(node, "skull");
 
-    const open = () => {
-        plugin.openCombatant(CreatureCreator.from(creature));
-    };
 </script>
 
 <div class="encounter-creature-container">
@@ -83,9 +85,20 @@
                 aria-label={`This creature is an ally.`}
             />
         {/if}
-        <strong class="encounter-creature-name" on:click={open}>
-            {creature.name}
+        <strong class="encounter-creature-name">
+            <CreatureName {creature} />
         </strong>
+        {#if plugin.data.rpgSystem === "pathfinder2e" && pf2eCreatureLevel(creature.level) != null}
+            <select
+                aria-label={`PF2e adjustment for ${creature.name}`}
+                value={creature.pf2eAdjustment ?? "normal"}
+                on:change={changeAdjustment}
+            >
+                <option value="normal">Normal</option>
+                <option value="weak">Weak</option>
+                <option value="elite">Elite</option>
+            </select>
+        {/if}
         {#if insignificant}
             <div
                 class="contains-icon"
